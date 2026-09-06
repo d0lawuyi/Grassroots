@@ -1,0 +1,176 @@
+'use client';
+
+import { type PropsWithChildren, Fragment, type ComponentType, useMemo } from 'react';
+import { Platform } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { INTERNAL_SLOT_NAME, NOT_FOUND_ROUTE_NAME, SITEMAP_ROUTE_NAME } from './constants';
+import { useDomComponentNavigation } from './domComponents/useDomComponentNavigation';
+import { NavigationContainer as UpstreamNavigationContainer } from './fork/NavigationContainer';
+import type { ExpoLinkingOptions } from './getLinkingConfig';
+import { navigationRef } from './global-state/navigationRef';
+import { RemovalPreventionProvider } from './global-state/removalPrevention';
+import { RouterConfigContext } from './global-state/routerConfigContext';
+import { RouterRegistryProvider } from './global-state/routerRegistry';
+import { RoutingQueueProvider } from './global-state/routingQueueContext';
+import { useRouterConfig } from './global-state/useStore';
+import { shouldAppendNotFound, shouldAppendSitemap } from './global-state/utils';
+import { LinkPreviewContextProvider } from './link/preview/LinkPreviewContext';
+import { Screen } from './primitives';
+import type { LinkingOptions } from './react-navigation/native';
+import { StackRouter, useNavigationBuilder } from './react-navigation/native';
+import { initScreensFeatureFlags } from './screensFeatureFlags';
+import type { RequireContext } from './types';
+import { maybeHideSplashScreen } from './utils/splash';
+import { parseUrlUsingCustomBase } from './utils/url';
+import { RootUnmatched } from './views/RootUnmatched';
+import { Sitemap } from './views/Sitemap';
+import * as SplashScreen from './views/Splash';
+
+export type ExpoRootProps = {
+  context: RequireContext;
+  location?: URL | string;
+  wrapper?: ComponentType<PropsWithChildren>;
+  linking?: Partial<ExpoLinkingOptions>;
+};
+
+export type NativeIntent = {
+  redirectSystemPath?: (event: {
+    path: string | null;
+    initial: boolean;
+  }) => Promise<string | null | undefined> | string | null | undefined;
+};
+
+const isTestEnv = process.env.NODE_ENV === 'test';
+
+const INITIAL_METRICS =
+  Platform.OS === 'web' || isTestEnv
+    ? {
+        frame: { x: 0, y: 0, width: 0, height: 0 },
+        insets: { top: 0, left: 0, right: 0, bottom: 0 },
+      }
+    : undefined;
+
+/**
+ * @hidden
+ */
+export function ExpoRoot({ wrapper: ParentWrapper = Fragment, ...props }: ExpoRootProps) {
+  initScreensFeatureFlags();
+  /*
+   * Due to static rendering we need to wrap these top level views in second wrapper
+   * View's like <SafeAreaProvider /> generate a <div> so if the parent wrapper
+   * is a HTML document, we need to ensure its inside the <body>
+   */
+  const wrapper = useMemo(
+    () =>
+      ({ children }: PropsWithChildren) => {
+        return (
+          <ParentWrapper>
+            <LinkPreviewContextProvider>
+              <SafeAreaProvider
+                // SSR support
+                initialMetrics={INITIAL_METRICS}>
+                {children}
+              </SafeAreaProvider>
+            </LinkPreviewContextProvider>
+          </ParentWrapper>
+        );
+      },
+    [ParentWrapper]
+  );
+
+  return (
+    <RoutingQueueProvider>
+      <ContextNavigator {...props} wrapper={wrapper} />
+    </RoutingQueueProvider>
+  );
+}
+
+const initialUrl =
+  Platform.OS === 'web' && typeof window !== 'undefined'
+    ? new URL(window.location.href)
+    : undefined;
+
+function onNavigationReady() {
+  maybeHideSplashScreen();
+}
+
+// TODO(@ubax): Refactor onReady logic and use listeners pattern
+function ContextNavigator({
+  context,
+  location: initialLocation = initialUrl,
+  wrapper: WrapperComponent = Fragment,
+  linking = {},
+}: ExpoRootProps) {
+  // location and linking.getInitialURL are both used to initialize the router state
+  //  - location is used on web and during static rendering
+  //  - linking.getInitialURL is used on native
+  const serverUrl = useMemo(() => {
+    const url =
+      typeof initialLocation === 'string'
+        ? parseUrlUsingCustomBase(initialLocation)
+        : initialLocation;
+
+    if (url && url instanceof URL) {
+      return `${url.pathname}${url.search}${url.hash}`;
+    }
+
+    return undefined;
+  }, []);
+
+  const { routerConfig, rootComponent } = useRouterConfig(context, linking, serverUrl);
+  const { linking: linkingConfig, routeNode } = routerConfig;
+
+  useDomComponentNavigation();
+
+  // TODO(@ubax): Revisit onboarding once route creation is React-owned.
+  if (process.env.NODE_ENV === 'development' && !routeNode) {
+    SplashScreen.hideAsync();
+    if (process.env.NODE_ENV === 'development') {
+      const Tutorial = require('./onboard/Tutorial').Tutorial;
+      return (
+        <WrapperComponent>
+          <Tutorial />
+        </WrapperComponent>
+      );
+    } else {
+      // Ensure tutorial styles are stripped in production.
+      return null;
+    }
+  }
+
+  return (
+    <RouterConfigContext.Provider value={routerConfig}>
+      <RouterRegistryProvider>
+        <RemovalPreventionProvider>
+          <UpstreamNavigationContainer
+            ref={navigationRef}
+            linking={linkingConfig as LinkingOptions<any>}
+            onReady={onNavigationReady}>
+            <WrapperComponent>
+              <Content rootComponent={rootComponent} />
+            </WrapperComponent>
+          </UpstreamNavigationContainer>
+        </RemovalPreventionProvider>
+      </RouterRegistryProvider>
+    </RouterConfigContext.Provider>
+  );
+}
+
+function Content({ rootComponent }: { rootComponent: ComponentType<any> }) {
+  const children = [<Screen key="SLOT" name={INTERNAL_SLOT_NAME} component={rootComponent} />];
+  if (shouldAppendNotFound()) {
+    children.push(<Screen key="NOT-FOUND" name={NOT_FOUND_ROUTE_NAME} component={RootUnmatched} />);
+  }
+  if (shouldAppendSitemap()) {
+    children.push(<Screen key="SITEMAP" name={SITEMAP_ROUTE_NAME} component={Sitemap} />);
+  }
+  const { state, descriptors, NavigationContent } = useNavigationBuilder(StackRouter, {
+    children,
+    id: INTERNAL_SLOT_NAME,
+  });
+
+  return (
+    <NavigationContent>{descriptors[state.routes[state.index]!.key]!.render()}</NavigationContent>
+  );
+}

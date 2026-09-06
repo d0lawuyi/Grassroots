@@ -1,0 +1,196 @@
+import * as Log from '../../../../log';
+import { installExitHooks } from '../../../../utils/exit';
+import { getAttachedDevicesAsync, getServer } from '../adb';
+import { startAdbReverseAsync, stopAdbReverseAsync } from '../adbReverse';
+
+jest.mock('../../../../log');
+jest.mock('../adb', () => {
+  const actual = jest.requireActual('../adb');
+  const server = {
+    runDeviceMutationAsync: jest.fn(async () => ''),
+  };
+  return {
+    ...actual,
+    getAttachedDevicesAsync: jest.fn(),
+    getServer: jest.fn(() => server),
+  };
+});
+jest.mock('../../../../utils/exit', () => ({
+  installExitHooks: jest.fn(),
+}));
+
+describe(startAdbReverseAsync, () => {
+  it('awaits and bounds best-effort cleanup in the exit hook', async () => {
+    jest.useFakeTimers();
+    let exitHook: (() => void | Promise<void>) | undefined;
+    jest.mocked(installExitHooks).mockImplementationOnce((hook) => {
+      exitHook = () => hook('SIGINT');
+      return jest.fn();
+    });
+    jest
+      .mocked(getAttachedDevicesAsync)
+      .mockResolvedValueOnce([])
+      .mockImplementationOnce(
+        ({ signal } = {}) =>
+          new Promise((_, reject) => {
+            signal!.addEventListener('abort', () => reject(signal!.reason), { once: true });
+          })
+      );
+
+    await expect(startAdbReverseAsync([3000])).resolves.toBe(true);
+    const cleanup = exitHook!();
+    expect(cleanup).toBeInstanceOf(Promise);
+    await jest.advanceTimersByTimeAsync(2_000);
+    await expect(cleanup).resolves.toBeUndefined();
+    jest.useRealTimers();
+  });
+
+  it(`reverses devices`, async () => {
+    jest.mocked(getAttachedDevicesAsync).mockResolvedValueOnce([
+      {
+        isAuthorized: true,
+        isBooted: true,
+        name: 'Pixel_2',
+        pid: 'FA8251A00720',
+        type: 'device',
+      },
+      {
+        isAuthorized: true,
+        isBooted: true,
+        name: 'Pixel_4_XL_API_30',
+        pid: 'emulator-5554',
+        type: 'emulator',
+      },
+    ]);
+    await expect(startAdbReverseAsync([3000])).resolves.toBe(true);
+
+    expect(getServer().runDeviceMutationAsync).toHaveBeenCalledTimes(2);
+    expect(getServer().runDeviceMutationAsync).toHaveBeenNthCalledWith(
+      1,
+      ['-s', 'FA8251A00720', 'reverse', 'tcp:3000', 'tcp:3000'],
+      'reverse port',
+      expect.any(AbortSignal),
+      2_000
+    );
+  });
+  it(`reverses multiple ports`, async () => {
+    jest.mocked(getAttachedDevicesAsync).mockResolvedValueOnce([
+      {
+        isAuthorized: true,
+        isBooted: true,
+        name: 'Pixel_4_XL_API_30',
+        pid: 'emulator-5554',
+        type: 'emulator',
+      },
+    ]);
+    await expect(startAdbReverseAsync([3000, 3001])).resolves.toBe(true);
+
+    expect(getServer().runDeviceMutationAsync).toHaveBeenCalledTimes(2);
+    expect(getServer().runDeviceMutationAsync).toHaveBeenNthCalledWith(
+      1,
+      ['-s', 'emulator-5554', 'reverse', 'tcp:3000', 'tcp:3000'],
+      'reverse port',
+      expect.any(AbortSignal),
+      2_000
+    );
+  });
+
+  it(`returns false when reversing a device that is unauthorized`, async () => {
+    jest.mocked(getAttachedDevicesAsync).mockResolvedValueOnce([
+      {
+        isAuthorized: false,
+        isBooted: true,
+        name: 'Device FA8251A00719',
+        pid: 'FA8251A00719',
+        type: 'device',
+      },
+    ]);
+    await expect(startAdbReverseAsync([3000])).resolves.toBe(false);
+    expect(getServer().runDeviceMutationAsync).toHaveBeenCalledTimes(0);
+    expect(Log.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it(`returns false when reversing a device fails`, async () => {
+    jest.mocked(getAttachedDevicesAsync).mockResolvedValueOnce([
+      {
+        isAuthorized: true,
+        isBooted: true,
+        name: 'Device FA8251A00719',
+        pid: 'FA8251A00719',
+        type: 'device',
+      },
+    ]);
+    jest.mocked(getServer().runDeviceMutationAsync).mockRejectedValueOnce(new Error('test'));
+    await expect(startAdbReverseAsync([3000])).resolves.toBe(false);
+    expect(getServer().runDeviceMutationAsync).toHaveBeenCalledTimes(1);
+    expect(Log.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves caller cancellation when reversing a port', async () => {
+    const reason = new Error('cancel reverse');
+    const controller = new AbortController();
+    controller.abort(reason);
+    jest.mocked(getAttachedDevicesAsync).mockResolvedValueOnce([
+      {
+        isAuthorized: true,
+        isBooted: true,
+        name: 'Pixel_2',
+        pid: 'FA8251A00720',
+        type: 'device',
+      },
+    ]);
+    jest.mocked(getServer().runDeviceMutationAsync).mockRejectedValueOnce(reason);
+
+    await expect(startAdbReverseAsync([3000], controller.signal)).rejects.toBe(reason);
+    expect(Log.warn).not.toHaveBeenCalled();
+  });
+});
+
+describe(stopAdbReverseAsync, () => {
+  it(`stops reverse`, async () => {
+    jest.mocked(getAttachedDevicesAsync).mockResolvedValueOnce([
+      {
+        isAuthorized: true,
+        isBooted: true,
+        name: 'Pixel_2',
+        pid: 'FA8251A00720',
+        type: 'device',
+      },
+      {
+        isAuthorized: true,
+        isBooted: true,
+        name: 'Pixel_4_XL_API_30',
+
+        pid: 'emulator-5554',
+        type: 'emulator',
+      },
+    ]);
+    await stopAdbReverseAsync([3000]);
+    expect(getServer().runDeviceMutationAsync).toHaveBeenCalledTimes(2);
+    expect(getServer().runDeviceMutationAsync).toHaveBeenNthCalledWith(
+      1,
+      ['-s', 'FA8251A00720', 'reverse', '--remove', 'tcp:3000'],
+      'remove reverse port',
+      expect.any(AbortSignal),
+      2_000
+    );
+  });
+
+  it('preserves caller cancellation when removing a reversed port', async () => {
+    const reason = new Error('cancel reverse cleanup');
+    const controller = new AbortController();
+    controller.abort(reason);
+    jest.mocked(getAttachedDevicesAsync).mockResolvedValueOnce([
+      {
+        isAuthorized: true,
+        isBooted: true,
+        name: 'Pixel_2',
+        pid: 'FA8251A00720',
+        type: 'device',
+      },
+    ]);
+    jest.mocked(getServer().runDeviceMutationAsync).mockRejectedValueOnce(reason);
+
+    await expect(stopAdbReverseAsync([3000], controller.signal)).rejects.toBe(reason);
+  });
+});

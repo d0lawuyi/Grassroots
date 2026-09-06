@@ -1,0 +1,215 @@
+import Ionicons from '@react-native-vector-icons/ionicons';
+import { useObserve } from 'expo-observe';
+import { Link } from 'expo-router';
+import React from 'react';
+import {
+  FlatList,
+  ListRenderItem,
+  PixelRatio,
+  StatusBar,
+  StyleProp,
+  StyleSheet,
+  Text,
+  TouchableHighlight,
+  View,
+  ViewStyle,
+  Platform,
+  Pressable,
+  useWindowDimensions,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getScreenIdForLinking } from 'test-suite/screens/getScreenIdForLinking';
+
+import { useTheme } from '../../../common/ThemeProvider';
+import type { ScreenConfig } from '../types/ScreenConfig';
+
+export interface ListElement {
+  screenName?: string;
+  name: string;
+  route: string;
+  isAvailable: boolean;
+}
+
+/**
+ * Converts component screen configs to ListElements with '/components/' prefix.
+ * @param screens - Array of screen configurations
+ */
+export function componentScreensToListElements(screens: ScreenConfig[]): ListElement[] {
+  return screens.map((screen) => ({
+    name: screen.name,
+    isAvailable: true,
+    route: `/components/${getScreenIdForLinking(screen)}`,
+  }));
+}
+
+/**
+ * Converts API screen configs to ListElements with '/apis/' prefix.
+ * @param screens - Array of screen configurations
+ */
+export function apiScreensToListElements(screens: ScreenConfig[]): ListElement[] {
+  return screens.map((screen) => ({
+    name: screen.name,
+    isAvailable: true,
+    route: `/apis/${getScreenIdForLinking(screen)}`,
+  }));
+}
+
+interface Props {
+  apis: ListElement[];
+  renderItemRight?: (props: ListElement) => React.ReactNode;
+  sort?: boolean;
+}
+
+function LinkButton({
+  href,
+  children,
+  ...rest
+}: {
+  href: string;
+  disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
+  children?: React.ReactNode;
+}) {
+  const { theme } = useTheme();
+  const [isPressed, setIsPressed] = React.useState(false);
+
+  if (Platform.OS === 'web') {
+    // It's important to use a `View` or `Text` on web instead of `TouchableX`
+    // Otherwise React Native for Web omits the `onClick` prop that's passed
+    // You can add hover effects using `onMouseEnter` and `onMouseLeave`
+    return (
+      <Link href={href} asChild>
+        <Pressable
+          pointerEvents={rest.disabled === true ? 'none' : 'auto'}
+          onPressIn={() => setIsPressed(true)}
+          onPressOut={() => setIsPressed(false)}
+          {...rest}
+          // `Link asChild` requires a flattened style object on its child.
+          style={StyleSheet.flatten([
+            {
+              backgroundColor: isPressed ? theme.background.hover : undefined,
+            },
+            rest.style,
+          ])}>
+          {children}
+        </Pressable>
+      </Link>
+    );
+  }
+
+  return (
+    <Link href={href} asChild>
+      <TouchableHighlight
+        underlayColor={theme.background.hover}
+        {...rest}
+        // `Link asChild` requires a flattened style object on its child.
+        style={StyleSheet.flatten(rest.style)}>
+        {children}
+      </TouchableHighlight>
+    </Link>
+  );
+}
+
+export default function ComponentListScreen(props: Props) {
+  const { theme } = useTheme();
+  const { markInteractive } = useObserve();
+
+  React.useEffect(() => {
+    StatusBar.setHidden(false);
+    markInteractive();
+  }, [markInteractive]);
+
+  const { width } = useWindowDimensions();
+  const isMobile = width <= 640;
+
+  // adjust the right padding for safe area -- we don't need the left because that's where the drawer is.
+  const { bottom, right } = useSafeAreaInsets();
+
+  const renderExampleSection: ListRenderItem<ListElement> = ({ item }) => {
+    const { route, screenName, name: exampleName, isAvailable } = item;
+    return (
+      <LinkButton
+        disabled={!isAvailable}
+        href={route ?? screenName ?? exampleName}
+        style={[styles.rowTouchable, { borderBottomColor: theme.border.secondary }]}>
+        <View
+          pointerEvents="none"
+          style={[styles.row, !isAvailable && styles.disabledRow, { paddingRight: 10 + right }]}>
+          {props.renderItemRight && props.renderItemRight(item)}
+          <Text style={[styles.rowLabel, { color: theme.text.default }]}>{exampleName}</Text>
+          <Text style={styles.rowDecorator}>
+            <Ionicons name="chevron-forward" size={18} color={theme.icon.secondary} />
+          </Text>
+        </View>
+      </LinkButton>
+    );
+  };
+
+  const keyExtractor = React.useCallback((item: ListElement) => item.name, []);
+
+  const sortedApis = React.useMemo(() => {
+    if (props.sort === false) {
+      return props.apis;
+    }
+    return props.apis.sort((a, b) => {
+      if (a.isAvailable !== b.isAvailable) {
+        if (a.isAvailable) {
+          return -1;
+        }
+        return 1;
+      }
+      return a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1;
+    });
+  }, [props.apis]);
+
+  return (
+    <FlatList<ListElement>
+      initialNumToRender={25}
+      removeClippedSubviews={false}
+      // Screens with a native search bar or large title grow their header at runtime, so let iOS
+      // inset the list instead of letting the header cover the first rows.
+      contentInsetAdjustmentBehavior="automatic"
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      style={{ backgroundColor: theme.background.screen }}
+      contentContainerStyle={{
+        paddingBottom: isMobile ? 0 : bottom,
+      }}
+      data={sortedApis}
+      keyExtractor={keyExtractor}
+      renderItem={renderExampleSection}
+    />
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingTop: 100,
+  },
+  row: {
+    paddingHorizontal: 10,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rowDecorator: {
+    alignSelf: 'flex-end',
+    paddingRight: 4,
+  },
+  rowTouchable: {
+    borderBottomWidth: 1.0 / PixelRatio.get(),
+  },
+  disabledRow: {
+    opacity: 0.3,
+  },
+  rowLabel: {
+    flex: 1,
+    fontSize: 15,
+  },
+  rowIcon: {
+    marginRight: 10,
+    marginLeft: 6,
+  },
+});
