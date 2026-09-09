@@ -30,7 +30,7 @@ import SplashLoadingScreen from './src/screens/SplashLoadingScreen';
 import Onboarding from './src/screens/Onboarding';
 import { COLORS } from './src/theme/colors';
 
-const ONBOARDING_KEY = 'grassroots:onboarding_complete_v3';
+const ONBOARDING_KEY = 'grassroots:onboarding_complete_v4';
 
 const DEFAULT_LOCATION = {
   latitude: 39.7684,
@@ -155,11 +155,14 @@ export default function App() {
     setTabKey((k) => k + 1);
   };
 
+
+    console.log('STATE:', { splashDone, onboardingSeen, authLoading, session: !!session, loading });
+
   if (!splashDone) {
     return <SplashLoadingScreen onFinish={() => setSplashDone(true)} />;
   }
 
-  if (onboardingSeen === null) {
+     if (onboardingSeen === null) {
     return (
       <View style={styles.center}>
         <StatusBar style="light" />

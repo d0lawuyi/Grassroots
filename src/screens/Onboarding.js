@@ -7,10 +7,13 @@ import {
   Pressable,
   StyleSheet,
   StatusBar,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
+
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
 const INK = '#070907';
 const LIME = '#D7FF3E';
@@ -23,7 +26,51 @@ const FACE_2 = 'rgba(244,246,242,0.22)';
 const FACE_3 = 'rgba(244,246,242,0.16)';
 const FACE_4 = 'rgba(244,246,242,0.11)';
 
-function MapPreview() {
+/* Counts a number up from 0 to target while the slide is active. */
+function useCountUp(target, active, duration = 900) {
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+    if (!active) {
+      setValue(0);
+      return;
+    }
+
+    const start = Date.now();
+    const id = setInterval(() => {
+      const t = Math.min((Date.now() - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setValue(target * eased);
+      if (t >= 1) clearInterval(id);
+    }, 32);
+
+    return () => clearInterval(id);
+  }, [active, target, duration]);
+
+  return value;
+}
+
+/* ---------- PREVIEW 1 — map with pinging pin ---------- */
+
+function MapPreview({ active }) {
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!active) return;
+
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 1600, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 0, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [active, pulse]);
+
+  const haloScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 2.1] });
+  const haloFade = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0] });
+
   return (
     <View style={s.card}>
       <View style={s.mapBed}>
@@ -41,7 +88,12 @@ function MapPreview() {
         <View style={[s.pinDim, { top: 118, left: 168 }]} />
 
         <View style={[s.pinLive, { top: 74, left: 108 }]}>
-          <View style={s.pinHalo} />
+          <Animated.View
+            style={[
+              s.pinHalo,
+              { opacity: haloFade, transform: [{ scale: haloScale }] },
+            ]}
+          />
           <View style={s.pinCore} />
         </View>
       </View>
@@ -64,7 +116,12 @@ function MapPreview() {
   );
 }
 
-function SplitPreview() {
+/* ---------- PREVIEW 2 — split receipt, numbers count up ---------- */
+
+function SplitPreview({ active }) {
+  const share = useCountUp(6, active, 1000);
+  const total = useCountUp(60, active, 700);
+
   return (
     <View style={s.card}>
       <View style={s.receiptHead}>
@@ -77,7 +134,7 @@ function SplitPreview() {
 
       <View style={s.recRow}>
         <Text style={s.recKey}>Ellis Park · 90 min</Text>
-        <Text style={s.recVal}>$60.00</Text>
+        <Text style={s.recVal}>${total.toFixed(2)}</Text>
       </View>
       <View style={s.recRow}>
         <Text style={s.recKey}>Players confirmed</Text>
@@ -88,7 +145,7 @@ function SplitPreview() {
 
       <View style={s.recRow}>
         <Text style={s.recYouKey}>Your share</Text>
-        <Text style={s.recYouVal}>$6.00</Text>
+        <Text style={s.recYouVal}>${share.toFixed(2)}</Text>
       </View>
 
       <View style={s.faces}>
@@ -106,6 +163,8 @@ function SplitPreview() {
     </View>
   );
 }
+
+/* ---------- PREVIEW 3 — create a game ---------- */
 
 function CreatePreview() {
   return (
@@ -146,7 +205,31 @@ function CreatePreview() {
   );
 }
 
-function TrustPreview() {
+/* ---------- PREVIEW 4 — trust record, bar sweeps out ---------- */
+
+function TrustPreview({ active }) {
+  const grow = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!active) {
+      grow.setValue(0);
+      return;
+    }
+    const anim = Animated.timing(grow, {
+      toValue: 1,
+      duration: 800,
+      delay: 200,
+      useNativeDriver: false,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [active, grow]);
+
+  const barWidth = grow.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '94%'],
+  });
+
   return (
     <View style={s.card}>
       <View style={s.trustHead}>
@@ -164,7 +247,7 @@ function TrustPreview() {
       </View>
 
       <View style={s.trustBarTrack}>
-        <View style={s.trustBarFill} />
+        <Animated.View style={[s.trustBarFill, { width: barWidth }]} />
       </View>
       <Text style={s.trustBarNote}>Reliability across 34 games</Text>
 
@@ -184,6 +267,8 @@ function TrustPreview() {
     </View>
   );
 }
+
+/* ---------- PREVIEW 5 — squad roster ---------- */
 
 function SquadPreview() {
   return (
@@ -229,6 +314,8 @@ function SquadPreview() {
     </View>
   );
 }
+
+/* ------------------------------------------------------------------ */
 
 const SLIDES = [
   {
@@ -278,7 +365,9 @@ const SLIDES = [
   },
 ];
 
-function Slide({ item, index, scrollX }) {
+/* ------------------------------------------------------------------ */
+
+function Slide({ item, index, scrollX, activeIndex }) {
   const input = [(index - 1) * width, index * width, (index + 1) * width];
 
   const textShift = scrollX.interpolate({
@@ -326,7 +415,7 @@ function Slide({ item, index, scrollX }) {
             ],
           }}
         >
-          <Preview />
+          <Preview active={activeIndex === index} />
         </Animated.View>
       </View>
 
@@ -353,6 +442,8 @@ function Slide({ item, index, scrollX }) {
     </View>
   );
 }
+
+/* ------------------------------------------------------------------ */
 
 export default function Onboarding({ onDone }) {
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -384,7 +475,7 @@ export default function Onboarding({ onDone }) {
         </Pressable>
       </View>
 
-      <Animated.FlatList
+      <AnimatedFlatList
         ref={listRef}
         data={SLIDES}
         keyExtractor={(i) => i.key}
@@ -402,7 +493,7 @@ export default function Onboarding({ onDone }) {
           setIndex(Math.round(e.nativeEvent.contentOffset.x / width))
         }
         renderItem={({ item, index: i }) => (
-          <Slide item={item} index={i} scrollX={scrollX} />
+          <Slide item={item} index={i} scrollX={scrollX} activeIndex={index} />
         )}
       />
 
@@ -427,6 +518,8 @@ export default function Onboarding({ onDone }) {
     </View>
   );
 }
+
+/* ------------------------------------------------------------------ */
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: INK },
@@ -518,7 +611,7 @@ const s = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: 'rgba(215,255,62,0.18)',
+    backgroundColor: LIME,
   },
   pinCore: {
     width: 13,
@@ -712,7 +805,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(244,246,242,0.10)',
     overflow: 'hidden',
   },
-  trustBarFill: { height: '100%', width: '94%', borderRadius: 2, backgroundColor: LIME },
+  trustBarFill: { height: '100%', borderRadius: 2, backgroundColor: LIME },
   trustBarNote: { color: MUTE, fontSize: 11, marginTop: 7, fontWeight: '600' },
 
   trustRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 7 },
