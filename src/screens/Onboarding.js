@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,9 +18,10 @@ const SNOW = '#F4F6F2';
 const MUTE = 'rgba(244,246,242,0.45)';
 const LINE = 'rgba(244,246,242,0.10)';
 
-/* ------------------------------------------------------------------ */
-/*  PREVIEW 1 — map fragment with live game pin                        */
-/* ------------------------------------------------------------------ */
+const FACE_1 = 'rgba(244,246,242,0.30)';
+const FACE_2 = 'rgba(244,246,242,0.22)';
+const FACE_3 = 'rgba(244,246,242,0.16)';
+const FACE_4 = 'rgba(244,246,242,0.11)';
 
 function MapPreview() {
   return (
@@ -63,10 +64,6 @@ function MapPreview() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  PREVIEW 2 — cost split receipt                                     */
-/* ------------------------------------------------------------------ */
-
 function SplitPreview() {
   return (
     <View style={s.card}>
@@ -95,7 +92,7 @@ function SplitPreview() {
       </View>
 
       <View style={s.faces}>
-        {['#D7FF3E', '#7DD3FC', '#FDBA74', '#F0ABFC', '#86EFAC'].map((c, i) => (
+        {[LIME, FACE_1, FACE_2, FACE_3, FACE_4].map((c, i) => (
           <View
             key={i}
             style={[s.face, { backgroundColor: c, marginLeft: i === 0 ? 0 : -11 }]}
@@ -109,59 +106,6 @@ function SplitPreview() {
     </View>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/*  PREVIEW 3 — upcoming game / roster                                 */
-/* ------------------------------------------------------------------ */
-
-function SquadPreview() {
-  return (
-    <View style={s.card}>
-      <View style={s.squadHead}>
-        <Text style={s.squadLabel}>NEXT UP</Text>
-        <Text style={s.squadCount}>IN 2 DAYS</Text>
-      </View>
-
-      <Text style={s.squadTitle}>Saturday Runs</Text>
-      <Text style={s.squadSub}>Ellis Park · 9:00 AM · 7v7</Text>
-
-      <View style={s.chipWrap}>
-        <View style={s.chip}>
-          <Ionicons name="chatbubble" size={11} color={INK} />
-          <Text style={s.chipText}>Group chat</Text>
-        </View>
-        <View style={s.chipGhost}>
-          <Ionicons name="navigate" size={11} color={SNOW} />
-          <Text style={s.chipGhostText}>Directions</Text>
-        </View>
-      </View>
-
-      <View style={s.roster}>
-        {[
-          ['#D7FF3E', 'You'],
-          ['#7DD3FC', 'Marc'],
-          ['#FDBA74', 'Dre'],
-          ['#F0ABFC', 'Sam'],
-        ].map(([c, n], i) => (
-          <View key={i} style={s.rosterItem}>
-            <View style={[s.rosterFace, { backgroundColor: c }]} />
-            <Text style={s.rosterName}>{n}</Text>
-          </View>
-        ))}
-        <View style={s.rosterItem}>
-          <View style={[s.rosterFace, s.rosterEmpty]}>
-            <Ionicons name="add" size={14} color={MUTE} />
-          </View>
-          <Text style={s.rosterName}>2 open</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  PREVIEW 4 — create a game                                          */
-/* ------------------------------------------------------------------ */
 
 function CreatePreview() {
   return (
@@ -202,24 +146,27 @@ function CreatePreview() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  PREVIEW 5 — trust / player rating                                  */
-/* ------------------------------------------------------------------ */
-
 function TrustPreview() {
   return (
     <View style={s.card}>
       <View style={s.trustHead}>
-        <View style={[s.trustFace, { backgroundColor: '#7DD3FC' }]} />
+        <View style={s.trustFace}>
+          <Text style={s.trustFaceText}>MD</Text>
+        </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={s.trustName}>Marcus D</Text>
           <Text style={s.trustMeta}>34 games · joined Mar 2025</Text>
         </View>
         <View style={s.trustScore}>
-          <Ionicons name="star" size={13} color={LIME} />
+          <Ionicons name="star" size={12} color={LIME} />
           <Text style={s.trustScoreText}>4.9</Text>
         </View>
       </View>
+
+      <View style={s.trustBarTrack}>
+        <View style={s.trustBarFill} />
+      </View>
+      <Text style={s.trustBarNote}>Reliability across 34 games</Text>
 
       <View style={s.recRule} />
 
@@ -229,23 +176,59 @@ function TrustPreview() {
         ['shield-checkmark', 'Verified account', 'yes'],
       ].map(([icon, label, val], i) => (
         <View key={i} style={s.trustRow}>
-          <Ionicons name={icon} size={15} color={LIME} />
+          <Ionicons name={icon} size={14} color={LIME} />
           <Text style={s.trustRowKey}>{label}</Text>
           <Text style={s.trustRowVal}>{val}</Text>
         </View>
       ))}
-
-      <View style={s.quoteBox}>
-        <Text style={s.quote}>
-          Ran the whole 90 and sorted the cones after, solid guy
-        </Text>
-        <Text style={s.quoteBy}>— after Saturday Runs</Text>
-      </View>
     </View>
   );
 }
 
-/* ------------------------------------------------------------------ */
+function SquadPreview() {
+  return (
+    <View style={s.card}>
+      <View style={s.squadHead}>
+        <Text style={s.squadLabel}>NEXT UP</Text>
+        <Text style={s.squadCount}>IN 2 DAYS</Text>
+      </View>
+
+      <Text style={s.squadTitle}>Saturday Runs</Text>
+      <Text style={s.squadSub}>Ellis Park · 9:00 AM · 7v7</Text>
+
+      <View style={s.chipWrap}>
+        <View style={s.chip}>
+          <Ionicons name="chatbubble" size={11} color={INK} />
+          <Text style={s.chipText}>Group chat</Text>
+        </View>
+        <View style={s.chipGhost}>
+          <Ionicons name="navigate" size={11} color={SNOW} />
+          <Text style={s.chipGhostText}>Directions</Text>
+        </View>
+      </View>
+
+      <View style={s.roster}>
+        {[
+          [LIME, 'You', true],
+          [FACE_1, 'Marc', false],
+          [FACE_2, 'Dre', false],
+          [FACE_3, 'Sam', false],
+        ].map(([c, n, isYou], i) => (
+          <View key={i} style={s.rosterItem}>
+            <View style={[s.rosterFace, { backgroundColor: c }]} />
+            <Text style={[s.rosterName, isYou && s.rosterNameYou]}>{n}</Text>
+          </View>
+        ))}
+        <View style={s.rosterItem}>
+          <View style={[s.rosterFace, s.rosterEmpty]}>
+            <Ionicons name="add" size={14} color={MUTE} />
+          </View>
+          <Text style={s.rosterName}>2 open</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
 
 const SLIDES = [
   {
@@ -279,7 +262,7 @@ const SLIDES = [
     key: '4',
     tag: 'THE PEOPLE',
     line1: 'Know who',
-    line2: 'you are playing',
+    line2: 'shows up',
     accent: 'line1',
     body: 'Every player carries a record of games played, punctuality and payment so the pitch stays reliable',
     Preview: TrustPreview,
@@ -295,34 +278,30 @@ const SLIDES = [
   },
 ];
 
-/* ------------------------------------------------------------------ */
-
 function Slide({ item, index, scrollX }) {
   const input = [(index - 1) * width, index * width, (index + 1) * width];
 
-  // text layer drags behind the swipe
   const textShift = scrollX.interpolate({
     inputRange: input,
-    outputRange: [width * 0.32, 0, -width * 0.32],
+    outputRange: [width * 0.3, 0, -width * 0.3],
     extrapolate: 'clamp',
   });
 
-  // preview layer leads it, and tilts
   const cardShift = scrollX.interpolate({
     inputRange: input,
-    outputRange: [width * 0.14, 0, -width * 0.14],
+    outputRange: [width * 0.13, 0, -width * 0.13],
     extrapolate: 'clamp',
   });
 
   const cardTilt = scrollX.interpolate({
     inputRange: input,
-    outputRange: ['7deg', '0deg', '-7deg'],
+    outputRange: ['6deg', '0deg', '-6deg'],
     extrapolate: 'clamp',
   });
 
   const cardScale = scrollX.interpolate({
     inputRange: input,
-    outputRange: [0.88, 1, 0.88],
+    outputRange: [0.89, 1, 0.89],
     extrapolate: 'clamp',
   });
 
@@ -336,18 +315,20 @@ function Slide({ item, index, scrollX }) {
 
   return (
     <View style={s.slide}>
-      <Animated.View
-        style={{
-          opacity: fade,
-          transform: [
-            { translateX: cardShift },
-            { scale: cardScale },
-            { rotateZ: cardTilt },
-          ],
-        }}
-      >
-        <Preview />
-      </Animated.View>
+      <View style={s.cardZone}>
+        <Animated.View
+          style={{
+            opacity: fade,
+            transform: [
+              { translateX: cardShift },
+              { scale: cardScale },
+              { rotateZ: cardTilt },
+            ],
+          }}
+        >
+          <Preview />
+        </Animated.View>
+      </View>
 
       <Animated.View
         style={[s.copy, { opacity: fade, transform: [{ translateX: textShift }] }]}
@@ -373,8 +354,6 @@ function Slide({ item, index, scrollX }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-
 export default function Onboarding({ onDone }) {
   const scrollX = useRef(new Animated.Value(0)).current;
   const listRef = useRef(null);
@@ -382,9 +361,13 @@ export default function Onboarding({ onDone }) {
 
   const isLast = index === SLIDES.length - 1;
 
+  const goTo = (i) => {
+    listRef.current?.scrollToOffset({ offset: i * width });
+  };
+
   const next = () => {
     if (isLast) onDone();
-    else listRef.current?.scrollToOffset({ offset: (index + 1) * width });
+    else goTo(index + 1);
   };
 
   return (
@@ -424,28 +407,16 @@ export default function Onboarding({ onDone }) {
       />
 
       <View style={s.footer}>
-        <View style={s.counterRow}>
-          <Text style={s.counter}>
-            <Text style={s.counterNow}>0{index + 1}</Text>
-            <Text style={s.counterAll}>  /  0{SLIDES.length}</Text>
-          </Text>
-          <View style={s.track}>
-            {SLIDES.map((sl, i) => (
-              <View
-                key={sl.key}
-                style={[s.trackSeg, i <= index && s.trackSegOn]}
-              />
-            ))}
-          </View>
+        <View style={s.track}>
+          {SLIDES.map((sl, i) => (
+            <Pressable key={sl.key} onPress={() => goTo(i)} hitSlop={10} style={s.trackTap}>
+              <View style={[s.trackSeg, i <= index && s.trackSegOn]} />
+            </Pressable>
+          ))}
         </View>
 
-        <Pressable
-          onPress={next}
-          style={({ pressed }) => [s.cta, pressed && s.ctaDown]}
-        >
-          <Text style={s.ctaText}>
-            {isLast ? 'Find my first game' : 'Next'}
-          </Text>
+        <Pressable onPress={next} style={({ pressed }) => [s.cta, pressed && s.ctaDown]}>
+          <Text style={s.ctaText}>{isLast ? 'Find my first game' : 'Next'}</Text>
           <View style={s.ctaIcon}>
             <Ionicons name="arrow-forward" size={15} color={LIME} />
           </View>
@@ -457,12 +428,9 @@ export default function Onboarding({ onDone }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: INK },
 
-  /* top bar */
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -483,26 +451,27 @@ const s = StyleSheet.create({
   brand: { color: SNOW, fontSize: 12, fontWeight: '800', letterSpacing: 3.4 },
   skip: { color: MUTE, fontSize: 14, fontWeight: '600' },
 
-  /* slide shell */
   slide: {
     width,
     flex: 1,
     paddingHorizontal: 26,
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 10,
   },
-  copy: { marginTop: 34 },
+  cardZone: { justifyContent: 'center', marginBottom: 30 },
+  copy: {},
 
-  tagRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  tagRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   tagBar: { width: 18, height: 2, backgroundColor: LIME, marginRight: 9 },
   tag: { color: LIME, fontSize: 10.5, fontWeight: '800', letterSpacing: 2.6 },
 
   display: {
     color: SNOW,
-    fontSize: 43,
+    fontSize: 42,
     fontWeight: '800',
-    lineHeight: 45,
+    lineHeight: 44,
     letterSpacing: -1.6,
-    marginBottom: 16,
+    marginBottom: 15,
   },
   displayAccent: { color: LIME },
 
@@ -510,21 +479,19 @@ const s = StyleSheet.create({
     color: MUTE,
     fontSize: 15,
     lineHeight: 23,
-    maxWidth: '90%',
+    maxWidth: '92%',
     fontWeight: '500',
   },
 
-  /* shared card */
   card: {
-    backgroundColor: 'rgba(255,255,255,0.045)',
+    backgroundColor: 'rgba(244,246,242,0.045)',
     borderRadius: 22,
     borderWidth: 1,
     borderColor: LINE,
     padding: 14,
-    minHeight: 264,
+    minHeight: 258,
   },
 
-  /* map preview */
   mapBed: {
     height: 176,
     borderRadius: 14,
@@ -580,12 +547,11 @@ const s = StyleSheet.create({
   slotsNum: { color: LIME, fontSize: 18, fontWeight: '800' },
   slotsDen: { color: MUTE, fontSize: 12, fontWeight: '700' },
 
-  /* split preview */
   receiptHead: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 18,
     marginTop: 4,
   },
   receiptLabel: { color: MUTE, fontSize: 10, fontWeight: '800', letterSpacing: 2 },
@@ -604,7 +570,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 9,
+    paddingVertical: 8,
   },
   recKey: { color: MUTE, fontSize: 14, fontWeight: '500' },
   recVal: { color: SNOW, fontSize: 14, fontWeight: '700' },
@@ -612,17 +578,16 @@ const s = StyleSheet.create({
   recYouKey: { color: SNOW, fontSize: 15, fontWeight: '700' },
   recYouVal: { color: LIME, fontSize: 25, fontWeight: '800', letterSpacing: -0.8 },
 
-  faces: { flexDirection: 'row', alignItems: 'center', marginTop: 22 },
+  faces: { flexDirection: 'row', alignItems: 'center', marginTop: 20 },
   face: { width: 27, height: 27, borderRadius: 14, borderWidth: 2, borderColor: INK },
   faceMore: {
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(244,246,242,0.07)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  faceMoreText: { color: SNOW, fontSize: 10, fontWeight: '800' },
+  faceMoreText: { color: MUTE, fontSize: 10, fontWeight: '800' },
   facesNote: { color: MUTE, fontSize: 12, fontWeight: '600', marginLeft: 11 },
 
-  /* squad preview */
   squadHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -657,7 +622,7 @@ const s = StyleSheet.create({
   },
   chipGhostText: { color: SNOW, fontSize: 12, fontWeight: '700', marginLeft: 5 },
 
-  roster: { flexDirection: 'row', marginTop: 24, justifyContent: 'space-between' },
+  roster: { flexDirection: 'row', marginTop: 22, justifyContent: 'space-between' },
   rosterItem: { alignItems: 'center' },
   rosterFace: {
     width: 38,
@@ -673,8 +638,8 @@ const s = StyleSheet.create({
     borderStyle: 'dashed',
   },
   rosterName: { color: MUTE, fontSize: 11, marginTop: 7, fontWeight: '600' },
+  rosterNameYou: { color: SNOW, fontWeight: '800' },
 
-  /* create preview */
   fieldRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -691,7 +656,7 @@ const s = StyleSheet.create({
     fontSize: 9.5,
     fontWeight: '800',
     letterSpacing: 2,
-    marginTop: 18,
+    marginTop: 16,
     marginBottom: 9,
   },
   sizeRow: { flexDirection: 'row', gap: 8 },
@@ -708,7 +673,7 @@ const s = StyleSheet.create({
   sizeText: { color: MUTE, fontSize: 14, fontWeight: '700' },
   sizeTextOn: { color: INK, fontWeight: '800' },
 
-  postRow: { marginTop: 16 },
+  postRow: { marginTop: 14 },
   postBtn: {
     height: 40,
     borderRadius: 11,
@@ -719,9 +684,16 @@ const s = StyleSheet.create({
   },
   postBtnText: { color: LIME, fontSize: 13, fontWeight: '800' },
 
-  /* trust preview */
-  trustHead: { flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 6 },
-  trustFace: { width: 44, height: 44, borderRadius: 22 },
+  trustHead: { flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 14 },
+  trustFace: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(244,246,242,0.10)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trustFaceText: { color: SNOW, fontSize: 13, fontWeight: '800' },
   trustName: { color: SNOW, fontSize: 16, fontWeight: '700' },
   trustMeta: { color: MUTE, fontSize: 12, marginTop: 3, fontWeight: '500' },
   trustScore: {
@@ -734,29 +706,23 @@ const s = StyleSheet.create({
   },
   trustScoreText: { color: LIME, fontSize: 13, fontWeight: '800', marginLeft: 4 },
 
-  trustRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  trustBarTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(244,246,242,0.10)',
+    overflow: 'hidden',
+  },
+  trustBarFill: { height: '100%', width: '94%', borderRadius: 2, backgroundColor: LIME },
+  trustBarNote: { color: MUTE, fontSize: 11, marginTop: 7, fontWeight: '600' },
+
+  trustRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 7 },
   trustRowKey: { color: SNOW, fontSize: 13.5, fontWeight: '600', marginLeft: 9, flex: 1 },
   trustRowVal: { color: MUTE, fontSize: 12.5, fontWeight: '600' },
 
-  quoteBox: {
-    marginTop: 12,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 12,
-    padding: 12,
-    borderLeftWidth: 2,
-    borderLeftColor: LIME,
-  },
-  quote: { color: SNOW, fontSize: 13, lineHeight: 19, fontWeight: '500' },
-  quoteBy: { color: MUTE, fontSize: 11, marginTop: 6, fontWeight: '600' },
-
-  /* footer */
-  footer: { paddingHorizontal: 26, paddingBottom: 42, paddingTop: 8 },
-  counterRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  counter: { width: 74 },
-  counterNow: { color: SNOW, fontSize: 12, fontWeight: '800', letterSpacing: 1 },
-  counterAll: { color: MUTE, fontSize: 12, fontWeight: '700', letterSpacing: 1 },
-  track: { flex: 1, flexDirection: 'row', gap: 5 },
-  trackSeg: { flex: 1, height: 2, backgroundColor: 'rgba(244,246,242,0.12)' },
+  footer: { paddingHorizontal: 26, paddingBottom: 42, paddingTop: 14 },
+  track: { flexDirection: 'row', marginBottom: 20, gap: 5 },
+  trackTap: { flex: 1, paddingVertical: 6 },
+  trackSeg: { height: 2, backgroundColor: 'rgba(244,246,242,0.12)' },
   trackSegOn: { backgroundColor: LIME },
 
   cta: {
