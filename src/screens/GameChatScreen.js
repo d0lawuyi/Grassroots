@@ -4,7 +4,6 @@ import {
   ActivityIndicator, KeyboardAvoidingView, Platform, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
 
@@ -75,13 +74,10 @@ export default function GameChatScreen({ game, userId, onClose }) {
   if (!game) return null;
 
   return (
-    <LinearGradient
-      colors={[COLORS.canvasTop, COLORS.canvasMid, COLORS.canvasBottom]}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose} style={styles.backButton}>
-          <Ionicons name="chevron-down" size={22} color={COLORS.neutral700} />
+          <Ionicons name="chevron-down" size={22} color={COLORS.snow} />
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.headerTitle} numberOfLines={1}>{game.title}</Text>
@@ -108,10 +104,19 @@ export default function GameChatScreen({ game, userId, onClose }) {
             keyExtractor={(item) => item.chat_id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={COLORS.primary}
+                colors={[COLORS.primary]}
+                progressBackgroundColor={COLORS.inkRaised}
+              />
+            }
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
             ListEmptyComponent={
               <View style={styles.empty}>
+                <View style={styles.emptyMark} />
                 <Text style={styles.emptyTitle}>No messages yet</Text>
                 <Text style={styles.emptyText}>Say hello to the other players</Text>
               </View>
@@ -159,63 +164,79 @@ export default function GameChatScreen({ game, userId, onClose }) {
             onPress={sendMessage}
             disabled={!draft.trim() || sending}
           >
-            <Ionicons name="arrow-up" size={20} color={COLORS.white} />
+            <Ionicons
+              name="arrow-up"
+              size={20}
+              color={draft.trim() ? COLORS.ink : COLORS.mute}
+            />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: COLORS.ink },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
   header: {
     flexDirection: 'row', alignItems: 'center', paddingTop: 50, paddingBottom: 14,
-    paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: COLORS.neutral200,
+    paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: COLORS.line,
   },
   backButton: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.7)',
+    width: 40, height: 40, borderRadius: 13, backgroundColor: COLORS.cardFill,
+    borderWidth: 1, borderColor: COLORS.line,
     alignItems: 'center', justifyContent: 'center',
   },
   headerText: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: COLORS.neutral900 },
-  headerSubtitle: { fontSize: 12, color: COLORS.muted, marginTop: 1 },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: COLORS.snow, letterSpacing: -0.3 },
+  headerSubtitle: { fontSize: 12, color: COLORS.mute, marginTop: 2 },
+
   listContent: { padding: 16, paddingBottom: 8, flexGrow: 1 },
   bubbleRow: { marginBottom: 12, alignItems: 'flex-start' },
   bubbleRowMine: { alignItems: 'flex-end' },
-  senderName: { fontSize: 12, fontWeight: '700', color: COLORS.muted, marginBottom: 4, marginLeft: 4 },
+  senderName: {
+    fontSize: 11, fontWeight: '800', color: COLORS.primary,
+    marginBottom: 5, marginLeft: 4, letterSpacing: 0.3,
+  },
   bubble: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
   bubbleTheirs: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: COLORS.cardFill,
     borderBottomLeftRadius: 6,
     borderWidth: 1,
-    borderColor: COLORS.neutral200,
+    borderColor: COLORS.line,
   },
   bubbleMine: { backgroundColor: COLORS.primary, borderBottomRightRadius: 6 },
-  messageText: { fontSize: 15, color: COLORS.neutral900, lineHeight: 20 },
-  messageTextMine: { color: COLORS.white },
-  timestamp: { fontSize: 10, color: COLORS.neutral400, marginTop: 3, marginLeft: 6 },
+  messageText: { fontSize: 15, color: COLORS.snow, lineHeight: 21 },
+  messageTextMine: { color: COLORS.ink, fontWeight: '500' },
+  timestamp: { fontSize: 10, color: COLORS.faint, marginTop: 4, marginLeft: 6 },
   timestampMine: { textAlign: 'right', marginRight: 6 },
+
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: COLORS.neutral700 },
-  emptyText: { fontSize: 14, color: COLORS.muted, marginTop: 4 },
+  emptyMark: {
+    width: 13, height: 13, backgroundColor: COLORS.primary,
+    borderRadius: 3, transform: [{ rotate: '45deg' }], marginBottom: 16,
+  },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: COLORS.snow },
+  emptyText: { fontSize: 14, color: COLORS.mute, marginTop: 6 },
+
   composer: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
     paddingHorizontal: 14, paddingTop: 10, paddingBottom: 24,
-    borderTopWidth: 1, borderTopColor: COLORS.neutral200,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderTopWidth: 1, borderTopColor: COLORS.line,
+    backgroundColor: COLORS.inkRaised,
   },
   input: {
     flex: 1, maxHeight: 110, minHeight: 44,
-    backgroundColor: COLORS.white, borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 22,
     paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12,
-    fontSize: 15, color: COLORS.neutral900,
-    borderWidth: 1, borderColor: COLORS.neutral200,
+    fontSize: 15, color: COLORS.snow,
+    borderWidth: 1, borderColor: COLORS.line,
   },
   sendButton: {
-    width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.primary,
+    width: 44, height: 44, borderRadius: 15, backgroundColor: COLORS.primary,
     alignItems: 'center', justifyContent: 'center',
   },
-  sendButtonDisabled: { backgroundColor: COLORS.neutral300 },
+  sendButtonDisabled: { backgroundColor: COLORS.neutral200 },
 });

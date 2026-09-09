@@ -4,7 +4,6 @@ import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
 import { formatGameTime, formatSport, sportEmoji } from '../utils/format';
 import { COLORS } from '../theme/colors';
@@ -52,13 +51,10 @@ export default function GameReviewScreen({ game, userId, onClose, onSubmitted })
   if (!game) return null;
 
   return (
-    <LinearGradient
-      colors={[COLORS.canvasTop, COLORS.canvasMid, COLORS.canvasBottom]}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose} style={styles.backButton}>
-          <Ionicons name="chevron-down" size={22} color={COLORS.neutral700} />
+          <Ionicons name="chevron-down" size={22} color={COLORS.snow} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Rate this game</Text>
         <View style={{ width: 40 }} />
@@ -89,8 +85,8 @@ export default function GameReviewScreen({ game, userId, onClose, onSubmitted })
               >
                 <Ionicons
                   name={rating >= i ? 'star' : 'star-outline'}
-                  size={40}
-                  color={rating >= i ? COLORS.warning : COLORS.neutral300}
+                  size={38}
+                  color={rating >= i ? COLORS.primary : COLORS.neutral300}
                 />
               </TouchableOpacity>
             ))}
@@ -100,7 +96,7 @@ export default function GameReviewScreen({ game, userId, onClose, onSubmitted })
             {rating > 0 ? PROMPTS[rating] : 'Tap to rate'}
           </Text>
 
-          <Text style={styles.label}>Anything to add?</Text>
+          <Text style={styles.label}>ANYTHING TO ADD</Text>
           <TextInput
             style={styles.reviewInput}
             placeholder="Good turnout, field was in great shape..."
@@ -119,9 +115,11 @@ export default function GameReviewScreen({ game, userId, onClose, onSubmitted })
             disabled={rating === 0 || saving}
           >
             {saving ? (
-              <ActivityIndicator color={COLORS.white} />
+              <ActivityIndicator color={COLORS.ink} />
             ) : (
-              <Text style={styles.submitText}>Submit</Text>
+              <Text style={[styles.submitText, rating === 0 && styles.submitTextDisabled]}>
+                Submit
+              </Text>
             )}
           </TouchableOpacity>
 
@@ -130,55 +128,68 @@ export default function GameReviewScreen({ game, userId, onClose, onSubmitted })
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: COLORS.ink },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 50, paddingBottom: 14, paddingHorizontal: 16,
-    borderBottomWidth: 1, borderBottomColor: COLORS.neutral200,
+    borderBottomWidth: 1, borderBottomColor: COLORS.line,
   },
   backButton: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.7)',
+    width: 40, height: 40, borderRadius: 13, backgroundColor: COLORS.cardFill,
+    borderWidth: 1, borderColor: COLORS.line,
     alignItems: 'center', justifyContent: 'center',
   },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: COLORS.neutral900 },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: COLORS.snow, letterSpacing: -0.3 },
+
   content: { padding: 24, paddingBottom: 40 },
   gameCard: {
-    backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 18, padding: 18,
-    borderWidth: 1, borderColor: COLORS.neutral200,
+    backgroundColor: COLORS.cardFill, borderRadius: 20, padding: 18,
+    borderWidth: 1, borderColor: COLORS.line,
   },
   sportBadge: {
-    fontSize: 13, fontWeight: '700', color: COLORS.primary, backgroundColor: COLORS.softGreen,
+    fontSize: 12.5, fontWeight: '800', color: COLORS.primary, backgroundColor: COLORS.limeDim,
     paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12,
-    alignSelf: 'flex-start', overflow: 'hidden', marginBottom: 10,
+    alignSelf: 'flex-start', overflow: 'hidden', marginBottom: 12,
   },
-  gameTitle: { fontSize: 20, fontWeight: '800', color: COLORS.neutral900, marginBottom: 6 },
-  gameMeta: { fontSize: 14, color: COLORS.muted, marginTop: 2 },
-  question: { fontSize: 19, fontWeight: '800', color: COLORS.neutral900, textAlign: 'center', marginTop: 32 },
-  starRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 18 },
+  gameTitle: {
+    fontSize: 21, fontWeight: '800', color: COLORS.snow,
+    marginBottom: 7, letterSpacing: -0.6,
+  },
+  gameMeta: { fontSize: 14, color: COLORS.mute, marginTop: 2 },
+
+  question: {
+    fontSize: 24, fontWeight: '800', color: COLORS.snow,
+    textAlign: 'center', marginTop: 36, letterSpacing: -0.7,
+  },
+  starRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 20 },
   prompt: {
-    fontSize: 15, fontWeight: '600', color: COLORS.primary,
-    textAlign: 'center', marginTop: 12, minHeight: 22,
+    fontSize: 15, fontWeight: '700', color: COLORS.primary,
+    textAlign: 'center', marginTop: 14, minHeight: 22,
   },
-  label: { fontSize: 15, fontWeight: '700', color: COLORS.neutral700, marginTop: 30, marginBottom: 10 },
+
+  label: {
+    fontSize: 10, fontWeight: '800', color: COLORS.primary,
+    letterSpacing: 2, marginTop: 34, marginBottom: 11,
+  },
   reviewInput: {
-    backgroundColor: COLORS.white, borderRadius: 16, padding: 16,
-    minHeight: 110, fontSize: 15, color: COLORS.neutral900,
-    borderWidth: 1, borderColor: COLORS.neutral200,
+    backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 16, padding: 16,
+    minHeight: 110, fontSize: 15, color: COLORS.snow, lineHeight: 21,
+    borderWidth: 1, borderColor: COLORS.line,
   },
-  charCount: { fontSize: 11, color: COLORS.neutral400, textAlign: 'right', marginTop: 6 },
+  charCount: { fontSize: 11, color: COLORS.faint, textAlign: 'right', marginTop: 7 },
+
   submitButton: {
     backgroundColor: COLORS.primary, height: 56, borderRadius: 16,
-    alignItems: 'center', justifyContent: 'center', marginTop: 24,
-    shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
+    alignItems: 'center', justifyContent: 'center', marginTop: 26,
   },
-  submitDisabled: { backgroundColor: COLORS.neutral300, elevation: 0, shadowOpacity: 0 },
-  submitText: { color: COLORS.white, fontSize: 17, fontWeight: '700' },
+  submitDisabled: { backgroundColor: COLORS.neutral200 },
+  submitText: { color: COLORS.ink, fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
+  submitTextDisabled: { color: COLORS.mute },
   skipButton: { alignItems: 'center', marginTop: 16, paddingVertical: 10 },
-  skipText: { color: COLORS.muted, fontSize: 14, fontWeight: '600' },
+  skipText: { color: COLORS.mute, fontSize: 14, fontWeight: '600' },
 });

@@ -42,7 +42,23 @@ export const COLORS = {
   neutral700:  'rgba(244,246,242,0.68)',
   neutral800:  'rgba(244,246,242,0.85)',
   neutral900:  '#F4F6F2',
+  /* glass surfaces */
+  glass:        'rgba(244,246,242,0.045)',
+  glassSurface: 'rgba(14,18,14,0.82)',
+  glassBorder:  'rgba(244,246,242,0.10)',
+  shadow:       'rgba(0,0,0,0.6)',
+  subtle:       'rgba(244,246,242,0.35)',
 
+  /* card accents */
+  plum:       '#F0ABFC',
+  plumLight:  'rgba(240,171,252,0.16)',
+  coral:      '#FDBA74',
+  coralLight: 'rgba(253,186,116,0.16)',
+  teal:       '#7DD3FC',
+  tealLight:  'rgba(125,211,252,0.16)',
+  sand:       '#86EFAC',
+  sandLight:  'rgba(134,239,172,0.16)',
+  
   /* status */
   success: '#86EFAC',
   warning: '#FDBA74',

@@ -1,137 +1,58 @@
 import React from 'react';
 
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-} from 'react-native';
-
-import { BlurView } from 'expo-blur';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../theme/colors';
 
 const ACCENTS = [
-  {
-    bg: COLORS.primaryLight,
-    color: COLORS.primaryDark,
-  },
-
-  {
-    bg: COLORS.plumLight,
-    color: COLORS.plum,
-  },
-
-  {
-    bg: COLORS.coralLight,
-    color: COLORS.coral,
-  },
-
-  {
-    bg: COLORS.tealLight,
-    color: COLORS.teal,
-  },
-
-  {
-    bg: COLORS.sandLight,
-    color: COLORS.sand,
-  },
+  { bg: COLORS.primaryLight, color: COLORS.primary },
+  { bg: COLORS.plumLight, color: COLORS.plum },
+  { bg: COLORS.coralLight, color: COLORS.coral },
+  { bg: COLORS.tealLight, color: COLORS.teal },
+  { bg: COLORS.sandLight, color: COLORS.sand },
 ];
 
-export default function GameCard({
-  game,
-  onPress,
-  index = 0,
-}) {
-  const accent =
-    ACCENTS[index % ACCENTS.length];
+export default function GameCard({ game, onPress, index = 0 }) {
+  const accent = ACCENTS[index % ACCENTS.length];
 
   const distance =
     game.distance_miles != null
-      ? `${Number(
-          game.distance_miles
-        ).toFixed(1)} mi`
+      ? `${Number(game.distance_miles).toFixed(1)} mi`
       : 'nearby';
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.wrapper,
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.wrapper, pressed && styles.pressed]}
     >
-      <BlurView
-        intensity={45}
-        tint="light"
-        style={styles.card}
-      >
+      <View style={styles.card}>
         <View style={styles.headerRow}>
-          <View
-            style={[
-              styles.iconBox,
-              {
-                backgroundColor:
-                  accent.bg,
-              },
-            ]}
-          >
-            <Ionicons
-              name="football-outline"
-              size={21}
-              color={accent.color}
-            />
+          <View style={[styles.iconBox, { backgroundColor: accent.bg }]}>
+            <Ionicons name="football-outline" size={20} color={accent.color} />
           </View>
 
           <View style={styles.distanceBadge}>
-            <Ionicons
-              name="navigate-outline"
-              size={13}
-              color={COLORS.muted}
-            />
-
-            <Text
-              style={styles.distanceText}
-            >
-              {distance}
-            </Text>
+            <Ionicons name="navigate-outline" size={12} color={COLORS.mute} />
+            <Text style={styles.distanceText}>{distance}</Text>
           </View>
         </View>
 
-        <Text
-          style={styles.title}
-          numberOfLines={2}
-        >
-          {game.name ||
-            'Pickup football'}
+        <Text style={styles.title} numberOfLines={2}>
+          {game.name || 'Pickup football'}
         </Text>
 
-        <Text
-          style={styles.location}
-          numberOfLines={1}
-        >
-          {[
-            game.city,
-            game.state,
-          ]
-            .filter(Boolean)
-            .join(', ') ||
-            'Indianapolis'}
+        <Text style={styles.location} numberOfLines={1}>
+          {[game.city, game.state].filter(Boolean).join(', ') || 'Indianapolis'}
         </Text>
 
         <View style={styles.tags}>
           <View style={styles.tag}>
-            <Text style={styles.tagText}>
-              {game.format || '7v7'}
-            </Text>
+            <Text style={styles.tagText}>{game.format || '7v7'}</Text>
           </View>
 
           <View style={styles.tag}>
-            <Text style={styles.tagText}>
-              {game.skillLevel ||
-                'Open level'}
-            </Text>
+            <Text style={styles.tagText}>{game.skillLevel || 'Open level'}</Text>
           </View>
         </View>
 
@@ -139,10 +60,7 @@ export default function GameCard({
 
         <View style={styles.bottomRow}>
           <View>
-            <Text style={styles.metaLabel}>
-              SPOTS
-            </Text>
-
+            <Text style={styles.metaLabel}>SPOTS</Text>
             <Text style={styles.metaValue}>
               {game.players || 10}
               {' / '}
@@ -151,61 +69,32 @@ export default function GameCard({
           </View>
 
           <View>
-            <Text style={styles.metaLabel}>
-              FIELD
-            </Text>
-
+            <Text style={styles.metaLabel}>FIELD</Text>
             <Text style={styles.metaValue}>
-              {game.price
-                ? `$${game.price}`
-                : 'Free'}
+              {game.price ? `$${game.price}` : 'Free'}
             </Text>
           </View>
 
           <View style={styles.openButton}>
-            <Ionicons
-              name="arrow-forward"
-              size={19}
-              color={COLORS.text}
-            />
+            <Ionicons name="arrow-forward" size={18} color={COLORS.ink} />
           </View>
         </View>
-      </BlurView>
+      </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    marginBottom: 11,
-  },
-
-  pressed: {
-    opacity: 0.78,
-    transform: [{ scale: 0.985 }],
-  },
+  wrapper: { marginBottom: 11 },
+  pressed: { opacity: 0.8, transform: [{ scale: 0.985 }] },
 
   card: {
     overflow: 'hidden',
-
-    borderRadius: 24,
-
+    borderRadius: 22,
     padding: 17,
-
-    backgroundColor: COLORS.glass,
-
+    backgroundColor: COLORS.cardFill,
     borderWidth: 1,
-    borderColor: COLORS.glassBorder,
-
-    shadowColor: COLORS.shadow,
-    shadowOpacity: 0.7,
-    shadowRadius: 18,
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-
-    elevation: 3,
+    borderColor: COLORS.line,
   },
 
   headerRow: {
@@ -215,130 +104,86 @@ const styles = StyleSheet.create({
   },
 
   iconBox: {
-    width: 43,
-    height: 43,
-
+    width: 42,
+    height: 42,
     borderRadius: 14,
-
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   distanceBadge: {
-    minHeight: 31,
-
-    paddingHorizontal: 10,
-
+    minHeight: 30,
+    paddingHorizontal: 11,
     borderRadius: 999,
-
-    backgroundColor:
-      'rgba(255,255,255,0.52)',
-
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderWidth: 1,
+    borderColor: COLORS.line,
     flexDirection: 'row',
     alignItems: 'center',
-
     gap: 5,
   },
-
   distanceText: {
-    color: COLORS.muted,
+    color: COLORS.mute,
     fontSize: 11,
     fontWeight: '800',
   },
 
   title: {
-    color: COLORS.text,
-
+    color: COLORS.snow,
     fontSize: 21,
     lineHeight: 25,
-
-    fontWeight: '900',
-
-    letterSpacing: -0.4,
-
+    fontWeight: '800',
+    letterSpacing: -0.6,
     marginTop: 17,
   },
-
   location: {
-    color: COLORS.muted,
+    color: COLORS.mute,
     fontSize: 13,
-
     marginTop: 4,
   },
 
-  tags: {
-    flexDirection: 'row',
-
-    gap: 7,
-
-    marginTop: 15,
-  },
-
+  tags: { flexDirection: 'row', gap: 7, marginTop: 15 },
   tag: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-
     borderRadius: 999,
-
-    backgroundColor:
-      'rgba(255,255,255,0.48)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderWidth: 1,
+    borderColor: COLORS.line,
   },
-
   tagText: {
-    color: COLORS.text,
-
+    color: COLORS.neutral800,
     fontSize: 11,
     fontWeight: '700',
   },
 
   divider: {
     height: 1,
-
-    backgroundColor:
-      'rgba(70,80,95,0.09)',
-
+    backgroundColor: COLORS.line,
     marginVertical: 15,
   },
 
-  bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-
-    gap: 22,
-  },
-
+  bottomRow: { flexDirection: 'row', alignItems: 'center', gap: 22 },
   metaLabel: {
-    color: COLORS.subtle,
-
+    color: COLORS.mute,
     fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-
-  metaValue: {
-    color: COLORS.text,
-
-    fontSize: 13,
     fontWeight: '800',
-
-    marginTop: 2,
+    letterSpacing: 1.4,
+  },
+  metaValue: {
+    color: COLORS.snow,
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 3,
   },
 
   openButton: {
     marginLeft: 'auto',
-
     width: 42,
     height: 42,
-
     borderRadius: 14,
-
-    backgroundColor:
-      'rgba(255,255,255,0.64)',
-
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
-
-    borderWidth: 1,
-    borderColor: COLORS.glassBorder,
   },
 });

@@ -41,7 +41,7 @@ export default function CreateGameScreen({ userId, onClose }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [loading, setLoading] = useState(false);
-  
+
   useEffect(() => {
     async function fetchParks() {
       const { data } = await supabase
@@ -91,8 +91,13 @@ export default function CreateGameScreen({ userId, onClose }) {
     minute: '2-digit',
   });
 
+  const splitPreview = (() => {
+    const max = parseInt(maxPlayers) || 0;
+    const per = parseFloat(price) || 0;
+    if (!max || !per) return null;
+    return (max * per).toFixed(0);
+  })();
 
-  
   async function handlePostGame() {
     if (!title.trim() || title.trim().length < 3) {
       return Alert.alert('Missing Info', 'Please give your game a descriptive title (at least 3 characters)');
@@ -107,7 +112,7 @@ export default function CreateGameScreen({ userId, onClose }) {
     const min = parseInt(minPlayers) || 0;
 
     if (min > max) {
-      return Alert.alert('Check player counts', 'Minimum to confirm can’t be more than max players.');
+      return Alert.alert('Check player counts', 'Minimum to confirm cannot be more than max players.');
     }
 
     setLoading(true);
@@ -167,24 +172,20 @@ export default function CreateGameScreen({ userId, onClose }) {
 
   return (
     <View style={styles.container}>
-      <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFill} />
+      <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
       <View style={styles.glassTint} pointerEvents="none" />
 
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose}>
-          <Ionicons name="close" size={28} color={COLORS.neutral900} />
+          <Ionicons name="close" size={26} color={COLORS.snow} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Create Game</Text>
-        <View style={{ width: 28 }} />
+        <Text style={styles.headerTitle}>New game</Text>
+        <View style={{ width: 26 }} />
       </View>
-
-
-
-
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
-        <Text style={styles.label}>Sport</Text>
+        <Text style={styles.label}>SPORT</Text>
         <View style={styles.pillRow}>
           {SPORTS.map((s) => (
             <TouchableOpacity
@@ -199,7 +200,7 @@ export default function CreateGameScreen({ userId, onClose }) {
           ))}
         </View>
 
-        <Text style={styles.label}>Select Venue</Text>
+        <Text style={styles.label}>VENUE</Text>
         <View style={styles.parkList}>
           {availableParks.length === 0 ? (
             <Text style={styles.noParks}>No venues listed for this sport yet</Text>
@@ -210,16 +211,20 @@ export default function CreateGameScreen({ userId, onClose }) {
                 style={[styles.parkCard, parkId === park.park_id && styles.parkCardActive]}
                 onPress={() => setParkId(park.park_id)}
               >
-                <Text style={styles.parkName}>{park.name}</Text>
+                <Text
+                  style={[styles.parkName, parkId === park.park_id && styles.parkNameActive]}
+                >
+                  {park.name}
+                </Text>
                 {parkId === park.park_id && (
-                  <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
+                  <Ionicons name="checkmark-circle" size={22} color={COLORS.primary} />
                 )}
               </TouchableOpacity>
             ))
           )}
         </View>
 
-        <Text style={styles.label}>Skill Level</Text>
+        <Text style={styles.label}>SKILL LEVEL</Text>
         <View style={styles.pillRow}>
           {SKILL_LEVELS.map((level) => (
             <TouchableOpacity
@@ -234,9 +239,9 @@ export default function CreateGameScreen({ userId, onClose }) {
           ))}
         </View>
 
-        <Text style={styles.label}>Game Title</Text>
+        <Text style={styles.label}>GAME TITLE</Text>
         <View style={styles.inputWrapper}>
-          <Ionicons name="football-outline" size={20} color={COLORS.neutral500} style={styles.icon} />
+          <Ionicons name="football-outline" size={19} color={COLORS.mute} style={styles.icon} />
           <TextInput
             style={styles.input}
             placeholder="e.g. Downtown 7v7"
@@ -246,13 +251,13 @@ export default function CreateGameScreen({ userId, onClose }) {
           />
         </View>
 
-        <Text style={styles.label}>When</Text>
+        <Text style={styles.label}>WHEN</Text>
         <View style={styles.row}>
           <TouchableOpacity
             style={[styles.dateButton, { flex: 1.3 }]}
             onPress={() => setShowDatePicker(true)}
           >
-            <Ionicons name="calendar-outline" size={19} color={COLORS.primary} />
+            <Ionicons name="calendar-outline" size={18} color={COLORS.primary} />
             <Text style={styles.dateButtonText}>{dateLabel}</Text>
           </TouchableOpacity>
 
@@ -260,7 +265,7 @@ export default function CreateGameScreen({ userId, onClose }) {
             style={[styles.dateButton, { flex: 1 }]}
             onPress={() => setShowTimePicker(true)}
           >
-            <Ionicons name="time-outline" size={19} color={COLORS.primary} />
+            <Ionicons name="time-outline" size={18} color={COLORS.primary} />
             <Text style={styles.dateButtonText}>{timeLabel}</Text>
           </TouchableOpacity>
         </View>
@@ -273,8 +278,8 @@ export default function CreateGameScreen({ userId, onClose }) {
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               minimumDate={new Date()}
               onChange={onDateChange}
-              textColor={COLORS.neutral900}
-              themeVariant="light"
+              textColor={COLORS.snow}
+              themeVariant="dark"
               style={styles.picker}
             />
           </View>
@@ -288,8 +293,8 @@ export default function CreateGameScreen({ userId, onClose }) {
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               minuteInterval={15}
               onChange={onTimeChange}
-              textColor={COLORS.neutral900}
-              themeVariant="light"
+              textColor={COLORS.snow}
+              themeVariant="dark"
               style={styles.picker}
             />
           </View>
@@ -307,7 +312,7 @@ export default function CreateGameScreen({ userId, onClose }) {
           </TouchableOpacity>
         )}
 
-        <Text style={styles.label}>How long</Text>
+        <Text style={styles.label}>HOW LONG</Text>
         <View style={styles.pillRow}>
           {DURATIONS.map((mins) => (
             <TouchableOpacity
@@ -330,8 +335,8 @@ export default function CreateGameScreen({ userId, onClose }) {
           <View style={[styles.repeatIcon, repeatWeekly && styles.repeatIconActive]}>
             <Ionicons
               name={repeatWeekly ? 'repeat' : 'repeat-outline'}
-              size={20}
-              color={repeatWeekly ? COLORS.white : COLORS.primary}
+              size={19}
+              color={repeatWeekly ? COLORS.ink : COLORS.primary}
             />
           </View>
           <View style={{ flex: 1 }}>
@@ -344,18 +349,19 @@ export default function CreateGameScreen({ userId, onClose }) {
           </View>
           <Ionicons
             name={repeatWeekly ? 'checkmark-circle' : 'ellipse-outline'}
-            size={24}
+            size={23}
             color={repeatWeekly ? COLORS.primary : COLORS.neutral300}
           />
         </TouchableOpacity>
 
         <View style={styles.row}>
           <View style={styles.halfInputContainer}>
-            <Text style={styles.label}>Max Players</Text>
+            <Text style={styles.label}>MAX PLAYERS</Text>
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
                 placeholder="10"
+                placeholderTextColor={COLORS.neutral400}
                 keyboardType="numeric"
                 value={maxPlayers}
                 onChangeText={setMaxPlayers}
@@ -363,11 +369,12 @@ export default function CreateGameScreen({ userId, onClose }) {
             </View>
           </View>
           <View style={styles.halfInputContainer}>
-            <Text style={styles.label}>Min to Confirm</Text>
+            <Text style={styles.label}>MIN TO CONFIRM</Text>
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
                 placeholder="8"
+                placeholderTextColor={COLORS.neutral400}
                 keyboardType="numeric"
                 value={minPlayers}
                 onChangeText={setMinPlayers}
@@ -376,17 +383,24 @@ export default function CreateGameScreen({ userId, onClose }) {
           </View>
         </View>
 
-        <Text style={styles.label}>Price per Player</Text>
+        <Text style={styles.label}>PRICE PER PLAYER</Text>
         <View style={styles.inputWrapper}>
           <Text style={styles.dollarSign}>$</Text>
           <TextInput
             style={styles.input}
             placeholder="8"
+            placeholderTextColor={COLORS.neutral400}
             keyboardType="numeric"
             value={price}
             onChangeText={setPrice}
           />
         </View>
+
+        {splitPreview && (
+          <Text style={styles.splitNote}>
+            Covers up to ${splitPreview} of field cost at a full roster
+          </Text>
+        )}
 
         <TouchableOpacity
           style={[styles.postButton, loading && styles.buttonDisabled]}
@@ -394,10 +408,10 @@ export default function CreateGameScreen({ userId, onClose }) {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color={COLORS.white} />
+            <ActivityIndicator color={COLORS.ink} />
           ) : (
             <Text style={styles.postButtonText}>
-              {repeatWeekly ? 'Create Weekly Game' : 'Post Game'}
+              {repeatWeekly ? 'Create weekly game' : 'Post to the map'}
             </Text>
           )}
         </TouchableOpacity>
@@ -410,13 +424,13 @@ export default function CreateGameScreen({ userId, onClose }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     marginTop: 60,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
     elevation: 10,
   },
   glassTint: {
@@ -427,85 +441,95 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: 24, borderBottomWidth: 1, borderBottomColor: COLORS.glassBorder,
+    padding: 22, borderBottomWidth: 1, borderBottomColor: COLORS.line,
   },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.neutral900 },
-  content: { padding: 24, paddingBottom: 40 },
+  headerTitle: { fontSize: 17, fontWeight: '800', color: COLORS.snow, letterSpacing: -0.3 },
+  content: { padding: 22, paddingBottom: 40 },
 
-  label: { fontSize: 15, fontWeight: '700', color: COLORS.neutral700, marginBottom: 12 },
-  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
+  label: {
+    fontSize: 10, fontWeight: '800', color: COLORS.primary,
+    letterSpacing: 2, marginBottom: 11,
+  },
+
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginBottom: 24 },
   pill: {
-    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.5)',
-    borderWidth: 1, borderColor: COLORS.glassBorder,
+    paddingHorizontal: 15, paddingVertical: 10, borderRadius: 20,
+    backgroundColor: 'transparent',
+    borderWidth: 1, borderColor: COLORS.line,
   },
   pillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  pillText: { color: COLORS.neutral500, fontWeight: '600' },
-  pillTextActive: { color: COLORS.white },
+  pillText: { color: COLORS.mute, fontWeight: '600', fontSize: 13.5 },
+  pillTextActive: { color: COLORS.ink, fontWeight: '800' },
 
   inputWrapper: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 16,
-    paddingHorizontal: 16, height: 56, marginBottom: 24,
-    borderWidth: 1, borderColor: COLORS.glassBorder,
+    backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 14,
+    paddingHorizontal: 16, height: 54, marginBottom: 24,
+    borderWidth: 1, borderColor: COLORS.line,
   },
   icon: { marginRight: 12 },
-  input: { flex: 1, fontSize: 16, color: COLORS.neutral900, height: '100%' },
-  dollarSign: { fontSize: 16, color: COLORS.neutral900, fontWeight: '700', marginRight: 4 },
+  input: { flex: 1, fontSize: 16, color: COLORS.snow, height: '100%' },
+  dollarSign: { fontSize: 16, color: COLORS.primary, fontWeight: '800', marginRight: 5 },
 
   dateButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 16, height: 56,
-    borderWidth: 1, borderColor: COLORS.glassBorder, marginBottom: 24,
+    backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 14, height: 54,
+    borderWidth: 1, borderColor: COLORS.line, marginBottom: 24,
   },
-  dateButtonText: { fontSize: 15, fontWeight: '700', color: COLORS.neutral800 },
+  dateButtonText: { fontSize: 15, fontWeight: '700', color: COLORS.snow },
   doneButton: {
-    alignSelf: 'center', paddingHorizontal: 28, paddingVertical: 10,
-    backgroundColor: COLORS.softGreen, borderRadius: 14, marginBottom: 20,
+    alignSelf: 'center', paddingHorizontal: 30, paddingVertical: 11,
+    backgroundColor: COLORS.primary, borderRadius: 13, marginBottom: 20,
   },
-  doneButtonText: { color: COLORS.primaryDark, fontWeight: '700' },
+  doneButtonText: { color: COLORS.ink, fontWeight: '800' },
   pickerSheet: {
-    backgroundColor: COLORS.white,
+    backgroundColor: 'rgba(0,0,0,0.35)',
     borderRadius: 16,
     marginBottom: 16,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: COLORS.neutral200,
+    borderColor: COLORS.line,
   },
   picker: { width: '100%' },
-  parkList: { marginBottom: 24, gap: 12 },
+
+  parkList: { marginBottom: 24, gap: 10 },
   parkCard: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: 16, borderRadius: 16, borderWidth: 1, borderColor: COLORS.glassBorder,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    padding: 16, borderRadius: 14, borderWidth: 1, borderColor: COLORS.line,
+    backgroundColor: COLORS.cardFill,
   },
-  parkCardActive: { borderColor: COLORS.primary, backgroundColor: COLORS.softGreen },
-  parkName: { fontSize: 16, fontWeight: '600', color: COLORS.neutral900 },
-  noParks: { fontSize: 14, color: COLORS.neutral500, fontStyle: 'italic', paddingVertical: 8 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 16 },
+  parkCardActive: { borderColor: COLORS.primary, backgroundColor: COLORS.limeDim },
+  parkName: { fontSize: 15.5, fontWeight: '600', color: COLORS.neutral800 },
+  parkNameActive: { color: COLORS.snow, fontWeight: '700' },
+  noParks: { fontSize: 14, color: COLORS.mute, fontStyle: 'italic', paddingVertical: 8 },
+
+  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 14 },
   halfInputContainer: { flex: 1 },
 
   repeatCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     padding: 14, borderRadius: 16, marginBottom: 24,
-    borderWidth: 1, borderColor: COLORS.glassBorder,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    borderWidth: 1, borderColor: COLORS.line,
+    backgroundColor: COLORS.cardFill,
   },
-  repeatCardActive: { borderColor: COLORS.primary, backgroundColor: COLORS.softGreen },
+  repeatCardActive: { borderColor: COLORS.primary, backgroundColor: COLORS.limeDim },
   repeatIcon: {
     width: 38, height: 38, borderRadius: 12, backgroundColor: COLORS.primaryLight,
     alignItems: 'center', justifyContent: 'center',
   },
   repeatIconActive: { backgroundColor: COLORS.primary },
-  repeatTitle: { fontSize: 15, fontWeight: '700', color: COLORS.neutral900 },
-  repeatSub: { fontSize: 12, color: COLORS.muted, marginTop: 2 },
+  repeatTitle: { fontSize: 15, fontWeight: '700', color: COLORS.snow },
+  repeatSub: { fontSize: 12, color: COLORS.mute, marginTop: 3 },
+
+  splitNote: {
+    color: COLORS.faint, fontSize: 12,
+    textAlign: 'center', marginTop: -10, marginBottom: 18,
+  },
 
   postButton: {
     backgroundColor: COLORS.primary, height: 56, borderRadius: 16,
     justifyContent: 'center', alignItems: 'center', marginTop: 8,
-    shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
   },
-  buttonDisabled: { opacity: 0.7 },
-  postButtonText: { color: COLORS.white, fontSize: 18, fontWeight: '700' },
+  buttonDisabled: { opacity: 0.6 },
+  postButtonText: { color: COLORS.ink, fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
 });
