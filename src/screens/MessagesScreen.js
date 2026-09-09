@@ -4,7 +4,6 @@ import {
   TouchableOpacity, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
 import { formatSport, sportEmoji } from '../utils/format';
 import { COLORS } from '../theme/colors';
@@ -98,10 +97,7 @@ export default function MessagesScreen({ userId, onOpenChat }) {
   }
 
   return (
-    <LinearGradient
-      colors={[COLORS.canvasTop, COLORS.canvasMid, COLORS.canvasBottom]}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <ScreenHeader title="Messages" subtitle="Chats for your games" />
 
       <FlatList
@@ -109,69 +105,101 @@ export default function MessagesScreen({ userId, onOpenChat }) {
         keyExtractor={(item) => item.game_id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
+            progressBackgroundColor={COLORS.inkRaised}
+          />
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>💬</Text>
+            <View style={styles.emptyMark} />
             <Text style={styles.emptyTitle}>No chats yet</Text>
-            <Text style={styles.emptyText}>Join or create a game to start talking</Text>
+            <Text style={styles.emptyText}>Join or start a run to talk to your squad</Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.thread}
-            activeOpacity={0.85}
-            onPress={() => onOpenChat(item)}
-          >
-            <View style={styles.avatar}>
-              <Text style={styles.avatarEmoji}>{sportEmoji(item.sport)}</Text>
-            </View>
+        renderItem={({ item }) => {
+          const unreadish = !!item.lastMessage;
 
-            <View style={styles.threadBody}>
-              <View style={styles.threadTop}>
-                <Text style={styles.threadTitle} numberOfLines={1}>{item.title}</Text>
-                {item.lastMessage && (
-                  <Text style={styles.threadTime}>{timeAgo(item.lastMessage.sent_at)}</Text>
-                )}
+          return (
+            <TouchableOpacity
+              style={styles.thread}
+              activeOpacity={0.85}
+              onPress={() => onOpenChat(item)}
+            >
+              <View style={styles.avatar}>
+                <Text style={styles.avatarEmoji}>{sportEmoji(item.sport)}</Text>
               </View>
 
-              <Text style={styles.threadPreview} numberOfLines={1}>
-                {item.lastMessage
-                  ? `${item.lastMessage.users?.full_name?.split(' ')[0] || 'Player'}: ${item.lastMessage.message}`
-                  : `${formatSport(item.sport)} at ${item.parks?.name || 'the park'}`}
-              </Text>
-            </View>
+              <View style={styles.threadBody}>
+                <View style={styles.threadTop}>
+                  <Text style={styles.threadTitle} numberOfLines={1}>{item.title}</Text>
+                  {item.lastMessage && (
+                    <Text style={styles.threadTime}>{timeAgo(item.lastMessage.sent_at)}</Text>
+                  )}
+                </View>
 
-            <Ionicons name="chevron-forward" size={18} color={COLORS.neutral400} />
-          </TouchableOpacity>
-        )}
+                <Text
+                  style={[styles.threadPreview, !unreadish && styles.threadPreviewIdle]}
+                  numberOfLines={1}
+                >
+                  {item.lastMessage
+                    ? `${item.lastMessage.users?.full_name?.split(' ')[0] || 'Player'}: ${item.lastMessage.message}`
+                    : `${formatSport(item.sport)} at ${item.parks?.name || 'the park'}`}
+                </Text>
+              </View>
+
+              <Ionicons name="chevron-forward" size={18} color={COLORS.neutral400} />
+            </TouchableOpacity>
+          );
+        }}
       />
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: COLORS.ink },
+  center: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.ink,
+  },
   listContent: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 40 },
+
   thread: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: COLORS.cardFill,
     borderRadius: 16, padding: 13, marginBottom: 9,
-    borderWidth: 1, borderColor: COLORS.neutral200,
+    borderWidth: 1, borderColor: COLORS.line,
   },
   avatar: {
-    width: 46, height: 46, borderRadius: 23, backgroundColor: COLORS.softGreen,
+    width: 46, height: 46, borderRadius: 15, backgroundColor: COLORS.limeDim,
     alignItems: 'center', justifyContent: 'center', marginRight: 12,
+    borderWidth: 1, borderColor: 'rgba(215,255,62,0.18)',
   },
-  avatarEmoji: { fontSize: 22 },
+  avatarEmoji: { fontSize: 21 },
+
   threadBody: { flex: 1, marginRight: 8 },
   threadTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  threadTitle: { fontSize: 15, fontWeight: '700', color: COLORS.neutral900, flex: 1 },
-  threadTime: { fontSize: 11, color: COLORS.neutral400, marginLeft: 8 },
-  threadPreview: { fontSize: 13, color: COLORS.muted, marginTop: 3 },
+  threadTitle: {
+    fontSize: 15, fontWeight: '700', color: COLORS.snow,
+    flex: 1, letterSpacing: -0.2,
+  },
+  threadTime: {
+    fontSize: 10.5, color: COLORS.mute, marginLeft: 8,
+    fontWeight: '700', letterSpacing: 0.5,
+  },
+  threadPreview: { fontSize: 13, color: COLORS.neutral600, marginTop: 4 },
+  threadPreviewIdle: { color: COLORS.mute, fontStyle: 'italic' },
+
   empty: { alignItems: 'center', paddingVertical: 70 },
-  emptyIcon: { fontSize: 42, marginBottom: 10 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: COLORS.neutral800 },
-  emptyText: { fontSize: 14, color: COLORS.muted, marginTop: 4 },
+  emptyMark: {
+    width: 14, height: 14, backgroundColor: COLORS.primary,
+    borderRadius: 3, transform: [{ rotate: '45deg' }], marginBottom: 18,
+  },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: COLORS.snow },
+  emptyText: { fontSize: 14, color: COLORS.mute, marginTop: 6 },
 });

@@ -6,7 +6,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { formatGameTime, formatSport, sportEmoji } from '../utils/format';
 import { COLORS } from '../theme/colors';
-import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import ScreenHeader from '../components/ScreenHeader';
 
@@ -128,7 +127,7 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
           <Ionicons
             name={action === 'delete' ? 'trash-outline' : 'exit-outline'}
             size={22}
-            color={COLORS.white}
+            color={COLORS.snow}
           />
           <Text style={styles.swipeActionText}>
             {action === 'delete' ? 'Delete' : 'Leave'}
@@ -149,10 +148,7 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
   const hasAny = sections.some((s) => s.data.length > 0);
 
   return (
-    <LinearGradient
-      colors={[COLORS.canvasTop, COLORS.canvasMid, COLORS.canvasBottom]}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <View style={styles.sproutWrap} pointerEvents="none">
         <Svg width={260} height={260} viewBox="0 0 300 300" fill="none">
           <Path d="M0 260 Q150 225 300 260 L300 320 L0 320 Z" fill={COLORS.soilDark} opacity={0.35} />
@@ -173,9 +169,9 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
 
       {!hasAny ? (
         <View style={styles.center}>
-          <Text style={styles.emptyIcon}>🌱</Text>
+          <View style={styles.emptyMark} />
           <Text style={styles.emptyTitle}>No games yet</Text>
-          <Text style={styles.emptySubtitle}>Join or create a game from the Explore tab</Text>
+          <Text style={styles.emptySubtitle}>Join or start a run from the Explore tab</Text>
         </View>
       ) : (
         <SectionList
@@ -183,10 +179,22 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
           keyExtractor={(item) => item.game_id}
           stickySectionHeadersEnabled={false}
           contentContainerStyle={{ padding: 20 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={COLORS.primary}
+              colors={[COLORS.primary]}
+              progressBackgroundColor={COLORS.inkRaised}
+            />
+          }
           renderSectionHeader={({ section }) =>
             section.data.length > 0 ? (
-              <Text style={styles.sectionTitle}>{section.title}</Text>
+              <View style={styles.sectionHead}>
+                <View style={styles.sectionBar} />
+                <Text style={styles.sectionTitle}>{section.title}</Text>
+                <Text style={styles.sectionCount}>{section.data.length}</Text>
+              </View>
             ) : null
           }
           renderItem={({ item, section }) => {
@@ -256,7 +264,7 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
                         key={i}
                         name={item.myRating >= i ? 'star' : 'star-outline'}
                         size={15}
-                        color={COLORS.warning}
+                        color={item.myRating >= i ? COLORS.primary : COLORS.neutral300}
                       />
                     ))}
                     <Text style={styles.ratedText}>You rated this</Text>
@@ -267,7 +275,7 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
                     onPress={() => onRateGame(item)}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="star-outline" size={16} color={COLORS.primary} />
+                    <Ionicons name="star-outline" size={16} color={COLORS.ink} />
                     <Text style={styles.actionTextPrimary}>Rate this game</Text>
                   </TouchableOpacity>
                 ) : null}
@@ -291,33 +299,86 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
           }}
         />
       )}
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  signOutText: { color: COLORS.muted, fontSize: 13, fontWeight: '600' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: COLORS.neutral800 },
-  emptySubtitle: { fontSize: 14, color: COLORS.neutral500, marginTop: 4, textAlign: 'center' },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: COLORS.neutral500, textTransform: 'uppercase', marginBottom: 12, marginTop: 8, letterSpacing: 0.5 },
-  card: { backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 20, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: COLORS.neutral200 },
-  cardPast: { backgroundColor: 'rgba(255,255,255,0.6)' },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  container: { flex: 1, backgroundColor: COLORS.ink },
+  signOutText: { color: COLORS.mute, fontSize: 13, fontWeight: '600' },
+  center: {
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    padding: 40, backgroundColor: COLORS.ink,
+  },
+
+  /* empty */
+  emptyMark: {
+    width: 15, height: 15, backgroundColor: COLORS.primary,
+    borderRadius: 3, transform: [{ rotate: '45deg' }], marginBottom: 20,
+  },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: COLORS.snow },
+  emptySubtitle: { fontSize: 14, color: COLORS.mute, marginTop: 6, textAlign: 'center' },
+
+  /* section header */
+  sectionHead: {
+    flexDirection: 'row', alignItems: 'center',
+    marginBottom: 14, marginTop: 10,
+  },
+  sectionBar: { width: 16, height: 2, backgroundColor: COLORS.primary, marginRight: 9 },
+  sectionTitle: {
+    fontSize: 10.5, fontWeight: '800', color: COLORS.primary,
+    textTransform: 'uppercase', letterSpacing: 2.4,
+  },
+  sectionCount: {
+    marginLeft: 'auto', fontSize: 11, fontWeight: '800',
+    color: COLORS.mute, letterSpacing: 1,
+  },
+
+  /* card */
+  card: {
+    backgroundColor: COLORS.cardFill, borderRadius: 20, padding: 18,
+    marginBottom: 14, borderWidth: 1, borderColor: COLORS.line,
+  },
+  cardPast: { backgroundColor: 'rgba(0,0,0,0.25)', borderColor: 'rgba(244,246,242,0.06)' },
+  cardTop: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 10,
+  },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  sportBadge: { fontSize: 13, fontWeight: '700', color: COLORS.primary, backgroundColor: COLORS.softGreen, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, overflow: 'hidden' },
-  skillBadge: { fontSize: 12, fontWeight: '600', color: COLORS.neutral600, backgroundColor: COLORS.neutral100, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 12, overflow: 'hidden' },
-  title: { fontSize: 17, fontWeight: '700', color: COLORS.neutral900, marginBottom: 8 },
+  sportBadge: {
+    fontSize: 12, fontWeight: '800', color: COLORS.primary,
+    backgroundColor: COLORS.limeDim, paddingHorizontal: 10,
+    paddingVertical: 5, borderRadius: 12, overflow: 'hidden',
+  },
+  skillBadge: {
+    fontSize: 11.5, fontWeight: '600', color: COLORS.neutral600,
+    backgroundColor: COLORS.neutral100, paddingHorizontal: 9,
+    paddingVertical: 5, borderRadius: 12, overflow: 'hidden',
+  },
+  title: {
+    fontSize: 18, fontWeight: '700', color: COLORS.snow,
+    marginBottom: 8, letterSpacing: -0.4,
+  },
   metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   meta: { fontSize: 14, color: COLORS.neutral500, marginLeft: 6 },
-  actionButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginTop: 12, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12, borderWidth: 1, borderColor: COLORS.neutral200, backgroundColor: 'rgba(255,255,255,0.6)' },
-  rateButton: { borderColor: COLORS.primaryLight, backgroundColor: COLORS.softGreen },
+
+  /* actions */
+  actionButton: {
+    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
+    marginTop: 14, paddingHorizontal: 13, paddingVertical: 8,
+    borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,107,107,0.25)',
+    backgroundColor: 'rgba(255,107,107,0.08)',
+  },
+  rateButton: {
+    borderColor: COLORS.primary, backgroundColor: COLORS.primary,
+  },
   actionTextDanger: { color: COLORS.danger, fontWeight: '700', fontSize: 13, marginLeft: 5 },
-  actionTextPrimary: { color: COLORS.primary, fontWeight: '700', fontSize: 13, marginLeft: 5 },
-  ratedRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 12 },
-  ratedText: { fontSize: 12, color: COLORS.muted, marginLeft: 7 },
+  actionTextPrimary: { color: COLORS.ink, fontWeight: '800', fontSize: 13, marginLeft: 5 },
+
+  ratedRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 14 },
+  ratedText: { fontSize: 12, color: COLORS.mute, marginLeft: 7 },
+
+  /* swipe */
   swipeAction: {
     backgroundColor: COLORS.danger,
     justifyContent: 'center',
@@ -327,7 +388,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginLeft: 10,
   },
-  swipeActionText: { color: COLORS.white, fontWeight: '700', fontSize: 12, marginTop: 4 },
+  swipeActionText: { color: COLORS.snow, fontWeight: '800', fontSize: 12, marginTop: 4 },
+
   sproutWrap: {
     position: 'absolute',
     top: '38%',

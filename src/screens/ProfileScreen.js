@@ -4,7 +4,6 @@ import {
   ActivityIndicator, TextInput, Alert, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
@@ -150,19 +149,29 @@ export default function ProfileScreen({ userId }) {
   const originLine = [profile?.origin_city, profile?.origin_state].filter(Boolean).join(', ');
 
   return (
-    <LinearGradient
-      colors={[COLORS.canvasTop, COLORS.canvasMid, COLORS.canvasBottom]}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
+            progressBackgroundColor={COLORS.inkRaised}
+          />
+        }
       >
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle}>Profile</Text>
-          <TouchableOpacity onPress={() => (editing ? saveProfile() : setEditing(true))}>
-            <Text style={styles.editLink}>{editing ? 'Save' : 'Edit'}</Text>
+          <TouchableOpacity
+            onPress={() => (editing ? saveProfile() : setEditing(true))}
+            style={editing ? styles.saveBtn : null}
+          >
+            <Text style={editing ? styles.saveBtnText : styles.editLink}>
+              {editing ? 'Save' : 'Edit'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -171,7 +180,7 @@ export default function ProfileScreen({ userId }) {
           <TouchableOpacity onPress={pickImage} activeOpacity={0.8} style={styles.avatarWrap}>
             {uploading ? (
               <View style={styles.avatar}>
-                <ActivityIndicator color={COLORS.primaryDark} />
+                <ActivityIndicator color={COLORS.primary} />
               </View>
             ) : profile?.profile_photo_url ? (
               <Image source={{ uri: profile.profile_photo_url }} style={styles.avatar} />
@@ -181,7 +190,7 @@ export default function ProfileScreen({ userId }) {
               </View>
             )}
             <View style={styles.cameraBadge}>
-              <Ionicons name="camera" size={13} color={COLORS.white} />
+              <Ionicons name="camera" size={13} color={COLORS.ink} />
             </View>
           </TouchableOpacity>
 
@@ -205,8 +214,8 @@ export default function ProfileScreen({ userId }) {
                 name={
                   rating >= i ? 'star' : rating >= i - 0.5 ? 'star-half' : 'star-outline'
                 }
-                size={18}
-                color={COLORS.warning}
+                size={17}
+                color={rating >= i - 0.5 ? COLORS.primary : COLORS.neutral300}
               />
             ))}
             <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
@@ -214,14 +223,14 @@ export default function ProfileScreen({ userId }) {
 
           {!editing && locationLine ? (
             <View style={styles.locationRow}>
-              <Ionicons name="location-outline" size={14} color={COLORS.muted} />
+              <Ionicons name="location-outline" size={14} color={COLORS.mute} />
               <Text style={styles.locationText}>{locationLine}</Text>
             </View>
           ) : null}
 
           {!editing && originLine ? (
             <View style={styles.locationRow}>
-              <Ionicons name="home-outline" size={14} color={COLORS.muted} />
+              <Ionicons name="home-outline" size={14} color={COLORS.mute} />
               <Text style={styles.locationText}>From {originLine}</Text>
             </View>
           ) : null}
@@ -230,7 +239,7 @@ export default function ProfileScreen({ userId }) {
         {/* Editable location fields */}
         {editing && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Where you play</Text>
+            <Text style={styles.cardTitle}>WHERE YOU PLAY</Text>
             <View style={styles.fieldRow}>
               <TextInput
                 style={[styles.input, { flex: 2 }]}
@@ -250,7 +259,7 @@ export default function ProfileScreen({ userId }) {
               />
             </View>
 
-            <Text style={[styles.cardTitle, { marginTop: 18 }]}>Where you're from</Text>
+            <Text style={[styles.cardTitle, { marginTop: 20 }]}>WHERE YOU ARE FROM</Text>
             <View style={styles.fieldRow}>
               <TextInput
                 style={[styles.input, { flex: 2 }]}
@@ -276,21 +285,27 @@ export default function ProfileScreen({ userId }) {
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>{stats.played}</Text>
-            <Text style={styles.statLabel}>games played</Text>
+            <Text style={styles.statLabel}>PLAYED</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>{stats.organized}</Text>
-            <Text style={styles.statLabel}>games hosted</Text>
+            <Text style={styles.statLabel}>HOSTED</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>{badges.length}</Text>
-            <Text style={styles.statLabel}>badges</Text>
+            <Text style={styles.statLabel}>BADGES</Text>
           </View>
         </View>
 
         {/* Badges */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Badges</Text>
+          <View style={styles.cardHead}>
+            <Text style={styles.cardTitle}>BADGES</Text>
+            <Text style={styles.cardCount}>
+              {badges.length} of {allBadges.length}
+            </Text>
+          </View>
+
           <View style={styles.badgeGrid}>
             {allBadges.map((badge) => {
               const earned = badges.includes(badge.badge_id);
@@ -302,8 +317,8 @@ export default function ProfileScreen({ userId }) {
                   <View style={[styles.badgeIcon, !earned && styles.badgeIconLocked]}>
                     <Ionicons
                       name={badge.icon}
-                      size={20}
-                      color={earned ? COLORS.primaryDark : COLORS.neutral400}
+                      size={19}
+                      color={earned ? COLORS.ink : COLORS.neutral400}
                     />
                   </View>
                   <Text style={[styles.badgeName, !earned && styles.badgeNameLocked]}>
@@ -322,73 +337,114 @@ export default function ProfileScreen({ userId }) {
           <Text style={styles.signOutText}>Sign out</Text>
         </TouchableOpacity>
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
-  headerTitle: { fontSize: 30, fontWeight: '800', color: COLORS.neutral900 },
+  container: { flex: 1, backgroundColor: COLORS.ink },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.ink },
+  content: { paddingHorizontal: 20, paddingTop: 62, paddingBottom: 40 },
+
+  headerRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 32, fontWeight: '800', color: COLORS.snow, letterSpacing: -1.2,
+  },
   editLink: { fontSize: 15, fontWeight: '700', color: COLORS.primary },
+  saveBtn: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 18, paddingVertical: 9, borderRadius: 11,
+  },
+  saveBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.ink },
+
+  /* identity */
   identityCard: {
-    alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: 20, padding: 22, borderWidth: 1, borderColor: COLORS.neutral200,
+    alignItems: 'center', backgroundColor: COLORS.cardFill,
+    borderRadius: 22, padding: 24, borderWidth: 1, borderColor: COLORS.line,
   },
   avatarWrap: { marginBottom: 14 },
   avatar: {
-    width: 92, height: 92, borderRadius: 46, backgroundColor: COLORS.softGreen,
+    width: 92, height: 92, borderRadius: 46, backgroundColor: COLORS.primaryLight,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
-  avatarInitials: { fontSize: 30, fontWeight: '800', color: COLORS.primaryDark },
+  avatarInitials: { fontSize: 30, fontWeight: '800', color: COLORS.primary },
   cameraBadge: {
     position: 'absolute', bottom: 0, right: 0,
     width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.primary,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: COLORS.white,
+    borderWidth: 2.5, borderColor: COLORS.ink,
   },
-  name: { fontSize: 21, fontWeight: '800', color: COLORS.neutral900 },
+  name: { fontSize: 22, fontWeight: '800', color: COLORS.snow, letterSpacing: -0.5 },
   nameInput: {
-    fontSize: 21, fontWeight: '800', color: COLORS.neutral900, textAlign: 'center',
-    borderBottomWidth: 1, borderBottomColor: COLORS.neutral300, paddingVertical: 4, minWidth: 180,
+    fontSize: 22, fontWeight: '800', color: COLORS.snow, textAlign: 'center',
+    borderBottomWidth: 1, borderBottomColor: COLORS.primary,
+    paddingVertical: 4, minWidth: 180,
   },
-  starRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 8 },
-  ratingText: { fontSize: 14, fontWeight: '700', color: COLORS.neutral700, marginLeft: 6 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
-  locationText: { fontSize: 13, color: COLORS.muted },
+
+  starRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 10 },
+  ratingText: { fontSize: 14, fontWeight: '800', color: COLORS.snow, marginLeft: 7 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 9 },
+  locationText: { fontSize: 13, color: COLORS.mute, fontWeight: '500' },
+
+  /* cards */
   card: {
-    backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 20, padding: 18,
-    marginTop: 14, borderWidth: 1, borderColor: COLORS.neutral200,
+    backgroundColor: COLORS.cardFill, borderRadius: 22, padding: 18,
+    marginTop: 14, borderWidth: 1, borderColor: COLORS.line,
   },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: COLORS.neutral800, marginBottom: 12 },
+  cardHead: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 14,
+  },
+  cardTitle: {
+    fontSize: 10.5, fontWeight: '800', color: COLORS.primary,
+    letterSpacing: 2, marginBottom: 12,
+  },
+  cardCount: {
+    fontSize: 10.5, fontWeight: '800', color: COLORS.mute,
+    letterSpacing: 1.2, marginBottom: 12,
+  },
+
   fieldRow: { flexDirection: 'row', gap: 10 },
   input: {
-    backgroundColor: COLORS.white, borderRadius: 12, paddingHorizontal: 14, height: 46,
-    fontSize: 15, color: COLORS.neutral900, borderWidth: 1, borderColor: COLORS.neutral200,
+    backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 12, paddingHorizontal: 14, height: 46,
+    fontSize: 15, color: COLORS.snow, borderWidth: 1, borderColor: COLORS.line,
   },
+
+  /* stats */
   statsRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   statCard: {
-    flex: 1, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: 16, paddingVertical: 16, borderWidth: 1, borderColor: COLORS.neutral200,
+    flex: 1, alignItems: 'center', backgroundColor: COLORS.cardFill,
+    borderRadius: 18, paddingVertical: 18, borderWidth: 1, borderColor: COLORS.line,
   },
-  statNumber: { fontSize: 22, fontWeight: '800', color: COLORS.primaryDark },
-  statLabel: { fontSize: 11, color: COLORS.muted, marginTop: 3 },
+  statNumber: { fontSize: 26, fontWeight: '800', color: COLORS.primary, letterSpacing: -1 },
+  statLabel: {
+    fontSize: 9.5, color: COLORS.mute, marginTop: 5,
+    fontWeight: '800', letterSpacing: 1.4,
+  },
+
+  /* badges */
   badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   badge: {
-    width: '47%', backgroundColor: COLORS.paleGreen, borderRadius: 14, padding: 12,
-    borderWidth: 1, borderColor: COLORS.primaryLight,
+    width: '47%', backgroundColor: COLORS.paleGreen, borderRadius: 15, padding: 12,
+    borderWidth: 1, borderColor: 'rgba(215,255,62,0.22)',
   },
-  badgeLocked: { backgroundColor: COLORS.neutral50, borderColor: COLORS.neutral200 },
+  badgeLocked: { backgroundColor: 'rgba(0,0,0,0.25)', borderColor: COLORS.line },
   badgeIcon: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.softGreen,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+    width: 36, height: 36, borderRadius: 12, backgroundColor: COLORS.primary,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 9,
   },
   badgeIconLocked: { backgroundColor: COLORS.neutral100 },
-  badgeName: { fontSize: 13, fontWeight: '700', color: COLORS.neutral900 },
+  badgeName: { fontSize: 13, fontWeight: '700', color: COLORS.snow },
   badgeNameLocked: { color: COLORS.neutral500 },
-  badgeDesc: { fontSize: 11, color: COLORS.muted, marginTop: 2, lineHeight: 15 },
-  signOut: { alignItems: 'center', marginTop: 24, paddingVertical: 14 },
+  badgeDesc: { fontSize: 11, color: COLORS.mute, marginTop: 3, lineHeight: 15 },
+
+  /* sign out */
+  signOut: {
+    alignItems: 'center', marginTop: 26, paddingVertical: 15,
+    borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,107,107,0.25)',
+  },
   signOutText: { color: COLORS.danger, fontWeight: '700', fontSize: 15 },
 });

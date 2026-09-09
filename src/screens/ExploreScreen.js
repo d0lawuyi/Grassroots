@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator,
-  TouchableOpacity, Image, Modal, RefreshControl, TextInput,
+  TouchableOpacity, Image, Modal, RefreshControl, TextInput, Platform,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
 import { formatGameTime, formatSport, sportEmoji } from '../utils/format';
 import { COLORS } from '../theme/colors';
+import { DARK_MAP } from '../theme/mapStyle';
 import ScreenHeader from '../components/ScreenHeader';
 
 function spotsLabel(count, maxPlayers, minToConfirm, status) {
@@ -19,6 +19,15 @@ function spotsLabel(count, maxPlayers, minToConfirm, status) {
   if (status === 'confirmed') return { text: `On · ${open} spots left`, tone: 'confirmed' };
   if (needed > 0) return { text: `${needed} more to confirm`, tone: 'forming' };
   return { text: `${open} spots open`, tone: 'normal' };
+}
+
+function ParkPin({ live }) {
+  return (
+    <View style={styles.pinWrap}>
+      {live && <View style={styles.pinHalo} />}
+      <View style={[styles.pinCore, !live && styles.pinCoreDim]} />
+    </View>
+  );
 }
 
 export default function ExploreScreen({ userId, userLocation, onSelectPark, onSelectGame, onCreateGame }) {
@@ -61,6 +70,12 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
   const getCount = (game) => (game.bookings || []).length;
   const getPlayers = (game) => (game.bookings || []).map((b) => b.users).filter(Boolean);
 
+  // park_ids that currently have a live game — drives pin styling
+  const activeParkIds = useMemo(
+    () => new Set(games.map((g) => g.park_id).filter(Boolean)),
+    [games]
+  );
+
   const filteredGames = useMemo(() => {
     const query = search.trim().toLowerCase();
 
@@ -94,6 +109,12 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
     longitudeDelta: 0.12,
   };
 
+   const mapProps = {
+    // provider: PROVIDER_GOOGLE,
+    customMapStyle: DARK_MAP,
+    ...(Platform.OS === 'ios' ? { userInterfaceStyle: 'dark' } : {}),
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -103,16 +124,21 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
   }
 
   return (
-    <LinearGradient
-      colors={[COLORS.canvasTop, COLORS.canvasMid, COLORS.canvasBottom]}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <FlatList
         data={filteredGames}
         keyExtractor={(item) => item.game_id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
+            progressBackgroundColor={COLORS.inkRaised}
+          />
+        }
         ListHeaderComponent={
           <View>
             <View style={{ marginHorizontal: -20 }}>
@@ -125,6 +151,7 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
               onPress={() => setMapExpanded(true)}
             >
               <MapView
+                {...mapProps}
                 style={StyleSheet.absoluteFill}
                 initialRegion={region}
                 scrollEnabled={false}
@@ -139,19 +166,21 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
                       latitude: Number(park.latitude),
                       longitude: Number(park.longitude),
                     }}
-                    pinColor={COLORS.primary}
-                  />
+                    tracksViewChanges={false}
+                  >
+                    <ParkPin live={activeParkIds.has(park.park_id)} />
+                  </Marker>
                 ))}
               </MapView>
 
               <View style={styles.mapOverlay}>
-                <Ionicons name="expand-outline" size={15} color={COLORS.white} />
+                <Ionicons name="expand-outline" size={15} color={COLORS.primary} />
                 <Text style={styles.mapOverlayText}>Browse parks</Text>
               </View>
             </TouchableOpacity>
 
             <View style={styles.searchBox}>
-              <Ionicons name="search-outline" size={19} color={COLORS.muted} />
+              <Ionicons name="search-outline" size={19} color={COLORS.mute} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Game title or park"
@@ -191,9 +220,9 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🌱</Text>
+            <View style={styles.emptyMark} />
             <Text style={styles.emptyTitle}>No games yet</Text>
-            <Text style={styles.emptyText}>Try a different search, or create one</Text>
+            <Text style={styles.emptyText}>Try a different search, or start your own run</Text>
           </View>
         }
         renderItem={({ item }) => {
@@ -256,13 +285,18 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
       />
 
       <TouchableOpacity style={styles.fab} activeOpacity={0.85} onPress={onCreateGame}>
-        <Ionicons name="add" size={28} color={COLORS.white} />
+        <Ionicons name="add" size={28} color={COLORS.ink} />
       </TouchableOpacity>
 
       <Modal visible={mapExpanded} animationType="slide" onRequestClose={() => setMapExpanded(false)}>
-        <View style={{ flex: 1 }}>
-          <MapView style={{ flex: 1 }} initialRegion={region}>
-            <Marker coordinate={region} title="You are here" pinColor="blue" />
+        <View style={{ flex: 1, backgroundColor: COLORS.ink }}>
+          <MapView {...mapProps} style={{ flex: 1 }} initialRegion={region}>
+            <Marker coordinate={region} title="You are here" tracksViewChanges={false}>
+              <View style={styles.mePin}>
+                <View style={styles.meCore} />
+              </View>
+            </Marker>
+
             {mappable.map((park) => (
               <Marker
                 key={park.park_id}
@@ -271,21 +305,23 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
                   longitude: Number(park.longitude),
                 }}
                 title={park.name}
-                pinColor={COLORS.primary}
+                tracksViewChanges={false}
                 onPress={() => {
                   setMapExpanded(false);
                   onSelectPark(park);
                 }}
-              />
+              >
+                <ParkPin live={activeParkIds.has(park.park_id)} />
+              </Marker>
             ))}
           </MapView>
 
           <TouchableOpacity style={styles.mapClose} onPress={() => setMapExpanded(false)}>
-            <Ionicons name="close" size={24} color={COLORS.neutral900} />
+            <Ionicons name="close" size={22} color={COLORS.ink} />
           </TouchableOpacity>
         </View>
       </Modal>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -330,97 +366,137 @@ function AvatarStack({ players, count, maxPlayers, max = 4 }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: COLORS.ink },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.ink },
   listContent: { paddingHorizontal: 20, paddingBottom: 100 },
+
+  /* map */
   mapPreview: {
     height: 170,
     borderRadius: 18,
     overflow: 'hidden',
     marginTop: 16,
-    backgroundColor: COLORS.neutral100,
+    backgroundColor: COLORS.inkRaised,
     borderWidth: 1,
-    borderColor: COLORS.neutral200,
+    borderColor: COLORS.line,
   },
   mapOverlay: {
     position: 'absolute', bottom: 10, right: 10,
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(7,9,7,0.8)',
+    borderWidth: 1, borderColor: COLORS.line,
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12,
   },
-  mapOverlayText: { color: COLORS.white, fontSize: 12, fontWeight: '700' },
+  mapOverlayText: { color: COLORS.primary, fontSize: 12, fontWeight: '700' },
+
+  pinWrap: { alignItems: 'center', justifyContent: 'center', width: 34, height: 34 },
+  pinHalo: {
+    position: 'absolute', width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(215,255,62,0.18)',
+  },
+  pinCore: {
+    width: 13, height: 13, borderRadius: 7,
+    backgroundColor: COLORS.primary,
+    borderWidth: 2.5, borderColor: COLORS.ink,
+  },
+  pinCoreDim: { backgroundColor: 'rgba(244,246,242,0.35)' },
+
+  mePin: { alignItems: 'center', justifyContent: 'center', width: 26, height: 26 },
+  meCore: {
+    width: 12, height: 12, borderRadius: 6,
+    backgroundColor: COLORS.info,
+    borderWidth: 2.5, borderColor: COLORS.ink,
+  },
+
+  /* search + filters */
   searchBox: {
     flexDirection: 'row', alignItems: 'center', gap: 9,
-    backgroundColor: 'rgba(255,255,255,0.85)',
+    backgroundColor: COLORS.cardFill,
     borderRadius: 14, paddingHorizontal: 14, height: 46,
-    marginTop: 14, borderWidth: 1, borderColor: COLORS.neutral200,
+    marginTop: 14, borderWidth: 1, borderColor: COLORS.line,
   },
-  searchInput: { flex: 1, fontSize: 15, color: COLORS.neutral900 },
+  searchInput: { flex: 1, fontSize: 15, color: COLORS.snow },
   filterRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 12 },
   chip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    borderWidth: 1, borderColor: COLORS.neutral200,
+    backgroundColor: 'transparent',
+    borderWidth: 1, borderColor: COLORS.line,
   },
-  chipActive: { backgroundColor: COLORS.softGreen, borderColor: COLORS.primaryLight },
-  chipText: { fontSize: 13, fontWeight: '600', color: COLORS.muted },
-  chipTextActive: { color: COLORS.primaryDark },
-  resultCount: { marginLeft: 'auto', fontSize: 12, color: COLORS.muted, fontWeight: '600' },
+  chipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  chipText: { fontSize: 13, fontWeight: '600', color: COLORS.mute },
+  chipTextActive: { color: COLORS.ink, fontWeight: '800' },
+  resultCount: { marginLeft: 'auto', fontSize: 12, color: COLORS.mute, fontWeight: '600' },
+
+  /* card */
   card: {
-    backgroundColor: COLORS.white, borderRadius: 16, marginBottom: 10, padding: 14,
-    borderWidth: 1, borderColor: COLORS.neutral200,
+    backgroundColor: COLORS.cardFill, borderRadius: 16, marginBottom: 10, padding: 14,
+    borderWidth: 1, borderColor: COLORS.line,
   },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardTopRight: { flexDirection: 'row', alignItems: 'center' },
-  sportBadge: { color: COLORS.primary, fontSize: 12, fontWeight: '700' },
+  sportBadge: { color: COLORS.primary, fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
   skillBadge: {
     fontSize: 11, fontWeight: '600', color: COLORS.neutral600, backgroundColor: COLORS.neutral100,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, overflow: 'hidden',
   },
-  price: { color: COLORS.text, fontSize: 16, fontWeight: '800' },
-  title: { color: COLORS.text, fontSize: 16, fontWeight: '700', marginTop: 8 },
-  park: { color: COLORS.muted, fontSize: 13, marginTop: 2 },
+  price: { color: COLORS.snow, fontSize: 16, fontWeight: '800' },
+  title: { color: COLORS.snow, fontSize: 16, fontWeight: '700', marginTop: 8, letterSpacing: -0.3 },
+  park: { color: COLORS.mute, fontSize: 13, marginTop: 2 },
   metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
   meta: { color: COLORS.neutral500, fontSize: 12, marginLeft: 5 },
-  fillBarContainer: { backgroundColor: COLORS.neutral200, borderRadius: 3, height: 4, marginTop: 10, overflow: 'hidden' },
-  fillBar: { backgroundColor: COLORS.accent, borderRadius: 3, height: '100%' },
+
+  fillBarContainer: {
+    backgroundColor: COLORS.neutral200, borderRadius: 3, height: 4,
+    marginTop: 10, overflow: 'hidden',
+  },
+  fillBar: { backgroundColor: COLORS.neutral400, borderRadius: 3, height: '100%' },
   fillBarConfirmed: { backgroundColor: COLORS.primary },
-  fillText: { color: COLORS.muted, fontSize: 12 },
+  fillText: { color: COLORS.mute, fontSize: 12 },
+
   spotsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
   spotsBadge: {
-    fontSize: 11, fontWeight: '700', color: COLORS.primary, backgroundColor: COLORS.softGreen,
+    fontSize: 11, fontWeight: '700', color: COLORS.primary, backgroundColor: COLORS.limeDim,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, overflow: 'hidden',
   },
-  spotsBadgeConfirmed: { color: COLORS.white, backgroundColor: COLORS.primary },
-  spotsBadgeForming: { color: '#B45309', backgroundColor: '#FEF3C7' },
-  spotsBadgeFull: { color: COLORS.neutral600, backgroundColor: COLORS.neutral100 },
+  spotsBadgeConfirmed: { color: COLORS.ink, backgroundColor: COLORS.primary },
+  spotsBadgeForming: { color: COLORS.warning, backgroundColor: 'rgba(253,186,116,0.14)' },
+  spotsBadgeFull: { color: COLORS.mute, backgroundColor: COLORS.neutral100 },
+
+  /* avatars */
   avatarStack: { flexDirection: 'row', alignItems: 'center' },
   avatar: {
     width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.primaryLight,
-    borderWidth: 2, borderColor: COLORS.white,
+    borderWidth: 2, borderColor: COLORS.ink,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   avatarImage: { width: '100%', height: '100%' },
-  avatarText: { fontSize: 9, fontWeight: '700', color: COLORS.primaryDark },
+  avatarText: { fontSize: 9, fontWeight: '800', color: COLORS.primary },
   avatarExtra: { backgroundColor: COLORS.neutral200 },
-  avatarCount: { color: COLORS.muted, fontSize: 12, marginLeft: 8 },
+  avatarCount: { color: COLORS.mute, fontSize: 12, marginLeft: 8 },
+
+  /* empty */
   empty: { alignItems: 'center', paddingVertical: 50 },
-  emptyIcon: { fontSize: 40, marginBottom: 10 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: COLORS.neutral800 },
-  emptyText: { fontSize: 14, color: COLORS.muted, marginTop: 4, textAlign: 'center' },
+  emptyMark: {
+    width: 14, height: 14, backgroundColor: COLORS.primary,
+    borderRadius: 3, transform: [{ rotate: '45deg' }], marginBottom: 18,
+  },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: COLORS.snow },
+  emptyText: { fontSize: 14, color: COLORS.mute, marginTop: 6, textAlign: 'center' },
+
+  /* fab + map close */
   fab: {
     position: 'absolute', bottom: 24, right: 20,
-    width: 56, height: 56, borderRadius: 28,
+    width: 56, height: 56, borderRadius: 18,
     backgroundColor: COLORS.primary,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
+    shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
   },
   mapClose: {
     position: 'absolute', top: 55, right: 20,
-    width: 42, height: 42, borderRadius: 21, backgroundColor: COLORS.white,
+    width: 42, height: 42, borderRadius: 21, backgroundColor: COLORS.primary,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, elevation: 5,
+    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
   },
 });
