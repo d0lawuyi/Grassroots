@@ -1,34 +1,89 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, ActivityIndicator,
+  View, Text, StyleSheet, FlatList, ActivityIndicator, Animated,
   TouchableOpacity, Image, Modal, RefreshControl, TextInput, Platform,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
-import { formatGameTime, formatSport, sportEmoji } from '../utils/format';
+import { formatSport, sportEmoji } from '../utils/format';
 import { COLORS } from '../theme/colors';
 import { DARK_MAP } from '../theme/mapStyle';
 import ScreenHeader from '../components/ScreenHeader';
+
+/* ---------- helpers ---------- */
 
 function spotsLabel(count, maxPlayers, minToConfirm, status) {
   const open = Math.max(maxPlayers - count, 0);
   const needed = Math.max((minToConfirm || 0) - count, 0);
 
   if (open === 0) return { text: 'Full', tone: 'full' };
-  if (status === 'confirmed') return { text: `On · ${open} spots left`, tone: 'confirmed' };
+  if (status === 'confirmed') return { text: `${open} spots left`, tone: 'confirmed' };
   if (needed > 0) return { text: `${needed} more to confirm`, tone: 'forming' };
   return { text: `${open} spots open`, tone: 'normal' };
 }
 
+/* Games inside 24h read as a countdown, everything else as a clock time. */
+function timeLabel(startTime) {
+  const start = new Date(startTime);
+  const ms = start.getTime() - Date.now();
+  const hours = ms / 3600000;
+
+  if (ms < 0) return { text: 'Started', urgent: false };
+  if (hours < 1) return { text: `In ${Math.max(Math.round(ms / 60000), 1)} min`, urgent: true };
+  if (hours < 24) {
+    const h = Math.round(hours);
+    return { text: `In ${h} ${h === 1 ? 'hour' : 'hours'}`, urgent: true };
+  }
+
+  return {
+    text: start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+    urgent: false,
+  };
+}
+
+function dateParts(startTime) {
+  const d = new Date(startTime);
+  return {
+    dow: d.toLocaleDateString([], { weekday: 'short' }).toUpperCase(),
+    day: d.getDate(),
+  };
+}
+
+/* ---------- map pin, pulses when the park has games ---------- */
+
 function ParkPin({ live }) {
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!live) return;
+
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 1800, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 0, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [live, pulse]);
+
+  const scale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 2.2] });
+  const fade = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] });
+
   return (
     <View style={styles.pinWrap}>
-      {live && <View style={styles.pinHalo} />}
+      {live && (
+        <Animated.View
+          style={[styles.pinHalo, { opacity: fade, transform: [{ scale }] }]}
+        />
+      )}
       <View style={[styles.pinCore, !live && styles.pinCoreDim]} />
     </View>
   );
 }
+
+/* ---------- screen ---------- */
 
 export default function ExploreScreen({ userId, userLocation, onSelectPark, onSelectGame, onCreateGame }) {
   const [games, setGames] = useState([]);
@@ -68,9 +123,12 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
   };
 
   const getCount = (game) => (game.bookings || []).length;
-  const getPlayers = (game) => (game.bookings || []).map((b) => b.users).filter(Boolean);
 
-  // park_ids that currently have a live game — drives pin styling
+  const getPlayers = (game) =>
+    (game.bookings || [])
+      .map((b) => ({ ...b.users, isYou: b.player_id === userId }))
+      .filter((u) => u.full_name || u.isYou);
+
   const activeParkIds = useMemo(
     () => new Set(games.map((g) => g.park_id).filter(Boolean)),
     [games]
@@ -109,7 +167,7 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
     longitudeDelta: 0.12,
   };
 
-   const mapProps = {
+  const mapProps = {
     // provider: PROVIDER_GOOGLE,
     customMapStyle: DARK_MAP,
     ...(Platform.OS === 'ios' ? { userInterfaceStyle: 'dark' } : {}),
@@ -230,32 +288,41 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
           const fillPercent = Math.min((count / item.max_players) * 100, 100);
           const spots = spotsLabel(count, item.max_players, item.min_players_to_confirm, item.status);
           const isConfirmed = item.status === 'confirmed';
+          const when = timeLabel(item.start_time);
+          const { dow, day } = dateParts(item.start_time);
 
           return (
             <TouchableOpacity style={styles.card} onPress={() => onSelectGame(item)} activeOpacity={0.85}>
-              <View style={styles.cardTop}>
-                <View style={styles.badgeRow}>
-                  <Text style={styles.sportBadge}>
-                    {sportEmoji(item.sport)} {formatSport(item.sport)}
-                  </Text>
-                  {item.skill_level && (
-                    <Text style={styles.skillBadge}>
-                      {item.skill_level.charAt(0).toUpperCase() + item.skill_level.slice(1)}
+              <View style={styles.cardBody}>
+                {/* left rail — the lime date tile from onboarding */}
+                <View style={styles.dateBadge}>
+                  <Text style={styles.dateDow}>{dow}</Text>
+                  <Text style={styles.dateNum}>{day}</Text>
+                </View>
+
+                <View style={styles.cardMain}>
+                  <View style={styles.titleRow}>
+                    <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+                    <Text style={styles.price}>
+                      ${Number(item.base_price_per_player).toFixed(0)}
                     </Text>
-                  )}
-                </View>
-                <View style={styles.cardTopRight}>
-                  <Text style={styles.price}>${Number(item.base_price_per_player).toFixed(0)}</Text>
-                  <Ionicons name="chevron-forward" size={17} color={COLORS.neutral400} style={{ marginLeft: 5 }} />
-                </View>
-              </View>
+                  </View>
 
-              <Text style={styles.title}>{item.title}</Text>
-              <Text style={styles.park}>{item.parks?.name || 'Park'}</Text>
+                  <Text style={styles.park} numberOfLines={1}>
+                    {sportEmoji(item.sport)} {formatSport(item.sport)} · {item.parks?.name || 'Park'}
+                  </Text>
 
-              <View style={styles.metaRow}>
-                <Ionicons name="time-outline" size={14} color={COLORS.neutral500} />
-                <Text style={styles.meta}>{formatGameTime(item.start_time)}</Text>
+                  <View style={styles.metaRow}>
+                    <Text style={[styles.meta, when.urgent && styles.metaUrgent]}>
+                      {when.text}
+                    </Text>
+                    {item.skill_level && (
+                      <Text style={styles.skillBadge}>
+                        {item.skill_level.charAt(0).toUpperCase() + item.skill_level.slice(1)}
+                      </Text>
+                    )}
+                  </View>
+                </View>
               </View>
 
               <View style={styles.fillBarContainer}>
@@ -325,13 +392,24 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
   );
 }
 
+/* ---------- monochrome avatar stack, you in lime ---------- */
+
+const TONES = [
+  'rgba(244,246,242,0.30)',
+  'rgba(244,246,242,0.22)',
+  'rgba(244,246,242,0.16)',
+  'rgba(244,246,242,0.11)',
+];
+
 function AvatarStack({ players, count, maxPlayers, max = 4 }) {
   if (!players || players.length === 0) {
     return <Text style={styles.fillText}>{count}/{maxPlayers} players</Text>;
   }
 
-  const shown = players.slice(0, max);
-  const extra = players.length - shown.length;
+  // put "you" first so the lime avatar leads
+  const ordered = [...players].sort((a, b) => (b.isYou ? 1 : 0) - (a.isYou ? 1 : 0));
+  const shown = ordered.slice(0, max);
+  const extra = ordered.length - shown.length;
 
   return (
     <View style={styles.avatarStack}>
@@ -344,11 +422,20 @@ function AvatarStack({ players, count, maxPlayers, max = 4 }) {
           .toUpperCase();
 
         return (
-          <View key={i} style={[styles.avatar, i > 0 && { marginLeft: -10 }]}>
+          <View
+            key={i}
+            style={[
+              styles.avatar,
+              { backgroundColor: player.isYou ? COLORS.primary : TONES[i % TONES.length] },
+              i > 0 && { marginLeft: -10 },
+            ]}
+          >
             {player.profile_photo_url ? (
               <Image source={{ uri: player.profile_photo_url }} style={styles.avatarImage} />
             ) : (
-              <Text style={styles.avatarText}>{initials}</Text>
+              <Text style={[styles.avatarText, player.isYou && styles.avatarTextYou]}>
+                {initials}
+              </Text>
             )}
           </View>
         );
@@ -389,10 +476,10 @@ const styles = StyleSheet.create({
   },
   mapOverlayText: { color: COLORS.primary, fontSize: 12, fontWeight: '700' },
 
-  pinWrap: { alignItems: 'center', justifyContent: 'center', width: 34, height: 34 },
+  pinWrap: { alignItems: 'center', justifyContent: 'center', width: 36, height: 36 },
   pinHalo: {
     position: 'absolute', width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(215,255,62,0.18)',
+    backgroundColor: COLORS.primary,
   },
   pinCore: {
     width: 13, height: 13, borderRadius: 7,
@@ -429,32 +516,50 @@ const styles = StyleSheet.create({
 
   /* card */
   card: {
-    backgroundColor: COLORS.cardFill, borderRadius: 16, marginBottom: 10, padding: 14,
+    backgroundColor: COLORS.cardFill, borderRadius: 18, marginBottom: 10, padding: 14,
     borderWidth: 1, borderColor: COLORS.line,
   },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardTopRight: { flexDirection: 'row', alignItems: 'center' },
-  sportBadge: { color: COLORS.primary, fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
+  cardBody: { flexDirection: 'row', alignItems: 'center' },
+
+  dateBadge: {
+    width: 44,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 13,
+  },
+  dateDow: { color: COLORS.ink, fontSize: 8.5, fontWeight: '800', letterSpacing: 1 },
+  dateNum: { color: COLORS.ink, fontSize: 19, fontWeight: '800', marginTop: -1 },
+
+  cardMain: { flex: 1 },
+  titleRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  title: {
+    color: COLORS.snow, fontSize: 16, fontWeight: '700',
+    letterSpacing: -0.3, flex: 1, marginRight: 8,
+  },
+  price: { color: COLORS.snow, fontSize: 15, fontWeight: '800' },
+  park: { color: COLORS.mute, fontSize: 12.5, marginTop: 3 },
+
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 },
+  meta: { color: COLORS.neutral500, fontSize: 12, fontWeight: '600' },
+  metaUrgent: { color: COLORS.primary, fontWeight: '800' },
   skillBadge: {
-    fontSize: 11, fontWeight: '600', color: COLORS.neutral600, backgroundColor: COLORS.neutral100,
+    fontSize: 10.5, fontWeight: '600', color: COLORS.neutral600,
+    backgroundColor: COLORS.neutral100,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, overflow: 'hidden',
   },
-  price: { color: COLORS.snow, fontSize: 16, fontWeight: '800' },
-  title: { color: COLORS.snow, fontSize: 16, fontWeight: '700', marginTop: 8, letterSpacing: -0.3 },
-  park: { color: COLORS.mute, fontSize: 13, marginTop: 2 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-  meta: { color: COLORS.neutral500, fontSize: 12, marginLeft: 5 },
 
   fillBarContainer: {
     backgroundColor: COLORS.neutral200, borderRadius: 3, height: 4,
-    marginTop: 10, overflow: 'hidden',
+    marginTop: 13, overflow: 'hidden',
   },
   fillBar: { backgroundColor: COLORS.neutral400, borderRadius: 3, height: '100%' },
   fillBarConfirmed: { backgroundColor: COLORS.primary },
   fillText: { color: COLORS.mute, fontSize: 12 },
 
-  spotsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
+  spotsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 9 },
   spotsBadge: {
     fontSize: 11, fontWeight: '700', color: COLORS.primary, backgroundColor: COLORS.limeDim,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, overflow: 'hidden',
@@ -466,13 +571,14 @@ const styles = StyleSheet.create({
   /* avatars */
   avatarStack: { flexDirection: 'row', alignItems: 'center' },
   avatar: {
-    width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.primaryLight,
+    width: 24, height: 24, borderRadius: 12,
     borderWidth: 2, borderColor: COLORS.ink,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   avatarImage: { width: '100%', height: '100%' },
-  avatarText: { fontSize: 9, fontWeight: '800', color: COLORS.primary },
-  avatarExtra: { backgroundColor: COLORS.neutral200 },
+  avatarText: { fontSize: 9, fontWeight: '800', color: COLORS.snow },
+  avatarTextYou: { color: COLORS.ink },
+  avatarExtra: { backgroundColor: 'rgba(244,246,242,0.07)' },
   avatarCount: { color: COLORS.mute, fontSize: 12, marginLeft: 8 },
 
   /* empty */
