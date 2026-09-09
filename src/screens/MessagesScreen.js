@@ -20,6 +20,24 @@ function timeAgo(timestamp) {
   return `${Math.floor(hours / 24)}d`;
 }
 
+/* How close the game is — drives sort order and the urgency chip. */
+function kickoff(startTime) {
+  if (!startTime) return null;
+  const ms = new Date(startTime).getTime() - Date.now();
+
+  if (ms < 0) return { text: 'PLAYED', past: true, urgent: false };
+
+  const hours = ms / 3600000;
+  if (hours < 1) return { text: `IN ${Math.max(Math.round(ms / 60000), 1)} MIN`, past: false, urgent: true };
+  if (hours < 24) {
+    const h = Math.round(hours);
+    return { text: `IN ${h} ${h === 1 ? 'HOUR' : 'HOURS'}`, past: false, urgent: true };
+  }
+
+  const days = Math.round(hours / 24);
+  return { text: `IN ${days} ${days === 1 ? 'DAY' : 'DAYS'}`, past: false, urgent: false };
+}
+
 export default function MessagesScreen({ userId, onOpenChat }) {
   const [threads, setThreads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,10 +83,17 @@ export default function MessagesScreen({ userId, onOpenChat }) {
       lastMessage: latest[g.game_id] || null,
     }));
 
+    // Upcoming games first, soonest at the top. Played games sink to the bottom.
+    const now = Date.now();
     withMessages.sort((a, b) => {
-      const aTime = a.lastMessage ? new Date(a.lastMessage.sent_at).getTime() : 0;
-      const bTime = b.lastMessage ? new Date(b.lastMessage.sent_at).getTime() : 0;
-      return bTime - aTime;
+      const aStart = new Date(a.start_time).getTime();
+      const bStart = new Date(b.start_time).getTime();
+      const aPast = aStart < now;
+      const bPast = bStart < now;
+
+      if (aPast !== bPast) return aPast ? 1 : -1;
+      if (aPast) return bStart - aStart;  // most recently played first
+      return aStart - bStart;             // soonest kickoff first
     });
 
     setThreads(withMessages);
@@ -122,34 +147,50 @@ export default function MessagesScreen({ userId, onOpenChat }) {
           </View>
         }
         renderItem={({ item }) => {
-          const unreadish = !!item.lastMessage;
+          const hasMessage = !!item.lastMessage;
+          const when = kickoff(item.start_time);
 
           return (
             <TouchableOpacity
-              style={styles.thread}
+              style={[styles.thread, when?.past && styles.threadPast]}
               activeOpacity={0.85}
               onPress={() => onOpenChat(item)}
             >
-              <View style={styles.avatar}>
+              <View style={[styles.avatar, when?.past && styles.avatarPast]}>
                 <Text style={styles.avatarEmoji}>{sportEmoji(item.sport)}</Text>
               </View>
 
               <View style={styles.threadBody}>
                 <View style={styles.threadTop}>
                   <Text style={styles.threadTitle} numberOfLines={1}>{item.title}</Text>
-                  {item.lastMessage && (
+                  {hasMessage && (
                     <Text style={styles.threadTime}>{timeAgo(item.lastMessage.sent_at)}</Text>
                   )}
                 </View>
 
                 <Text
-                  style={[styles.threadPreview, !unreadish && styles.threadPreviewIdle]}
+                  style={[styles.threadPreview, !hasMessage && styles.threadPreviewIdle]}
                   numberOfLines={1}
                 >
-                  {item.lastMessage
+                  {hasMessage
                     ? `${item.lastMessage.users?.full_name?.split(' ')[0] || 'Player'}: ${item.lastMessage.message}`
                     : `${formatSport(item.sport)} at ${item.parks?.name || 'the park'}`}
                 </Text>
+
+                {when && (
+                  <View style={styles.kickoffRow}>
+                    {when.urgent && <View style={styles.kickoffDot} />}
+                    <Text
+                      style={[
+                        styles.kickoff,
+                        when.urgent && styles.kickoffUrgent,
+                        when.past && styles.kickoffPast,
+                      ]}
+                    >
+                      {when.text}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               <Ionicons name="chevron-forward" size={18} color={COLORS.neutral400} />
@@ -175,10 +216,19 @@ const styles = StyleSheet.create({
     borderRadius: 16, padding: 13, marginBottom: 9,
     borderWidth: 1, borderColor: COLORS.line,
   },
+  threadPast: {
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderColor: 'rgba(244,246,242,0.06)',
+  },
+
   avatar: {
     width: 46, height: 46, borderRadius: 15, backgroundColor: COLORS.limeDim,
     alignItems: 'center', justifyContent: 'center', marginRight: 12,
     borderWidth: 1, borderColor: 'rgba(215,255,62,0.18)',
+  },
+  avatarPast: {
+    backgroundColor: 'rgba(244,246,242,0.05)',
+    borderColor: COLORS.line,
   },
   avatarEmoji: { fontSize: 21 },
 
@@ -194,6 +244,18 @@ const styles = StyleSheet.create({
   },
   threadPreview: { fontSize: 13, color: COLORS.neutral600, marginTop: 4 },
   threadPreviewIdle: { color: COLORS.mute, fontStyle: 'italic' },
+
+  kickoffRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  kickoffDot: {
+    width: 5, height: 5, borderRadius: 3,
+    backgroundColor: COLORS.primary, marginRight: 6,
+  },
+  kickoff: {
+    fontSize: 9.5, fontWeight: '800',
+    color: COLORS.mute, letterSpacing: 1.4,
+  },
+  kickoffUrgent: { color: COLORS.primary },
+  kickoffPast: { color: COLORS.faint },
 
   empty: { alignItems: 'center', paddingVertical: 70 },
   emptyMark: {
