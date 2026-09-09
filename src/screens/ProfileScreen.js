@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ProfileScreen({ userId }) {
   const [profile, setProfile] = useState(null);
@@ -332,6 +333,19 @@ export default function ProfileScreen({ userId }) {
             })}
           </View>
         </View>
+        {__DEV__ && (
+          <TouchableOpacity
+            style={styles.devReset}
+            onPress={async () => {
+              const keys = await AsyncStorage.getAllKeys();
+              const onboardingKeys = keys.filter((k) => k.startsWith('grassroots:onboarding'));
+              await AsyncStorage.multiRemove(onboardingKeys);
+              Alert.alert('Reset', 'Reload the app to see onboarding again.');
+            }}
+          >
+            <Text style={styles.devResetText}>Reset onboarding (dev only)</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity style={styles.signOut} onPress={() => supabase.auth.signOut()}>
           <Text style={styles.signOutText}>Sign out</Text>
@@ -447,4 +461,12 @@ const styles = StyleSheet.create({
     borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,107,107,0.25)',
   },
   signOutText: { color: COLORS.danger, fontWeight: '700', fontSize: 15 },
+
+    devReset: { alignItems: 'center', marginTop: 10, paddingVertical: 10 },
+  devResetText: { color: COLORS.faint, fontSize: 12, fontWeight: '600' },
+
+
+
 });
+
+
