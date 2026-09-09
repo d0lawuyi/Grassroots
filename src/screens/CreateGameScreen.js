@@ -34,7 +34,6 @@ export default function CreateGameScreen({ userId, onClose }) {
   const [parkId, setParkId] = useState('');
   const [maxPlayers, setMaxPlayers] = useState('10');
   const [minPlayers, setMinPlayers] = useState('8');
-  const [price, setPrice] = useState('8');
   const [startTime, setStartTime] = useState(roundToNextHour(new Date()));
   const [duration, setDuration] = useState(90);
   const [repeatWeekly, setRepeatWeekly] = useState(false);
@@ -46,7 +45,7 @@ export default function CreateGameScreen({ userId, onClose }) {
     async function fetchParks() {
       const { data } = await supabase
         .from('parks')
-        .select('park_id, name, sports')
+        .select('park_id, name, sports, hourly_rate')
         .eq('status', 'active');
       if (data && data.length > 0) setParks(data);
     }
@@ -55,12 +54,31 @@ export default function CreateGameScreen({ userId, onClose }) {
 
   const availableParks = parks.filter((p) => (p.sports || []).includes(sport));
 
-  // Clear the selected park if it doesn't support the newly chosen sport
   useEffect(() => {
     if (parkId && !availableParks.some((p) => p.park_id === parkId)) {
       setParkId('');
     }
   }, [sport]);
+
+  const selectedPark = parks.find((p) => p.park_id === parkId) || null;
+  const rate = Number(selectedPark?.hourly_rate) || 0;
+  const isFreeField = !!selectedPark && rate <= 0;
+
+  /* what each player pays, at the roster size the organizer picked */
+  const split = (() => {
+    if (!selectedPark || isFreeField) return null;
+    const hours = duration / 60;
+    const total = rate * hours;
+    const max = parseInt(maxPlayers) || 0;
+    const min = parseInt(minPlayers) || 0;
+    if (!max) return null;
+
+    return {
+      total,
+      atFull: total / max,
+      atMin: min > 0 ? total / min : null,
+    };
+  })();
 
   function onDateChange(event, selected) {
     setShowDatePicker(Platform.OS === 'ios');
@@ -91,13 +109,6 @@ export default function CreateGameScreen({ userId, onClose }) {
     minute: '2-digit',
   });
 
-  const splitPreview = (() => {
-    const max = parseInt(maxPlayers) || 0;
-    const per = parseFloat(price) || 0;
-    if (!max || !per) return null;
-    return (max * per).toFixed(0);
-  })();
-
   async function handlePostGame() {
     if (!title.trim() || title.trim().length < 3) {
       return Alert.alert('Missing Info', 'Please give your game a descriptive title (at least 3 characters)');
@@ -119,6 +130,9 @@ export default function CreateGameScreen({ userId, onClose }) {
     try {
       const endTime = new Date(startTime.getTime() + duration * 60000);
 
+      // legacy column — the real share is computed from the park rate at read time
+      const legacyPerPlayer = split ? Number(split.atFull.toFixed(2)) : 0;
+
       if (repeatWeekly) {
         const { error: seriesError } = await supabase
           .from('game_series')
@@ -134,7 +148,7 @@ export default function CreateGameScreen({ userId, onClose }) {
             duration_minutes: duration,
             max_players: max,
             min_players_to_confirm: min,
-            base_price_per_player: parseFloat(price) || 0,
+            base_price_per_player: legacyPerPlayer,
           });
 
         if (seriesError) throw seriesError;
@@ -153,7 +167,7 @@ export default function CreateGameScreen({ userId, onClose }) {
           end_time: endTime.toISOString(),
           max_players: max,
           min_players_to_confirm: min,
-          base_price_per_player: parseFloat(price) || 0,
+          base_price_per_player: legacyPerPlayer,
           skill_level: skillLevel.toLowerCase(),
           status: 'open',
         });
@@ -187,14 +201,14 @@ export default function CreateGameScreen({ userId, onClose }) {
 
         <Text style={styles.label}>SPORT</Text>
         <View style={styles.pillRow}>
-          {SPORTS.map((s) => (
+          {SPORTS.map((sp) => (
             <TouchableOpacity
-              key={s.value}
-              style={[styles.pill, sport === s.value && styles.pillActive]}
-              onPress={() => setSport(s.value)}
+              key={sp.value}
+              style={[styles.pill, sport === sp.value && styles.pillActive]}
+              onPress={() => setSport(sp.value)}
             >
-              <Text style={[styles.pillText, sport === s.value && styles.pillTextActive]}>
-                {s.label}
+              <Text style={[styles.pillText, sport === sp.value && styles.pillTextActive]}>
+                {sp.label}
               </Text>
             </TouchableOpacity>
           ))}
@@ -205,22 +219,30 @@ export default function CreateGameScreen({ userId, onClose }) {
           {availableParks.length === 0 ? (
             <Text style={styles.noParks}>No venues listed for this sport yet</Text>
           ) : (
-            availableParks.map((park) => (
-              <TouchableOpacity
-                key={park.park_id}
-                style={[styles.parkCard, parkId === park.park_id && styles.parkCardActive]}
-                onPress={() => setParkId(park.park_id)}
-              >
-                <Text
-                  style={[styles.parkName, parkId === park.park_id && styles.parkNameActive]}
+            availableParks.map((park) => {
+              const parkRate = Number(park.hourly_rate) || 0;
+              const active = parkId === park.park_id;
+
+              return (
+                <TouchableOpacity
+                  key={park.park_id}
+                  style={[styles.parkCard, active && styles.parkCardActive]}
+                  onPress={() => setParkId(park.park_id)}
                 >
-                  {park.name}
-                </Text>
-                {parkId === park.park_id && (
-                  <Ionicons name="checkmark-circle" size={22} color={COLORS.primary} />
-                )}
-              </TouchableOpacity>
-            ))
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.parkName, active && styles.parkNameActive]}>
+                      {park.name}
+                    </Text>
+                    <Text style={styles.parkRate}>
+                      {parkRate > 0 ? `$${parkRate.toFixed(0)} per hour` : 'Free field'}
+                    </Text>
+                  </View>
+                  {active && (
+                    <Ionicons name="checkmark-circle" size={22} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })
           )}
         </View>
 
@@ -383,23 +405,42 @@ export default function CreateGameScreen({ userId, onClose }) {
           </View>
         </View>
 
-        <Text style={styles.label}>PRICE PER PLAYER</Text>
-        <View style={styles.inputWrapper}>
-          <Text style={styles.dollarSign}>$</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="8"
-            placeholderTextColor={COLORS.neutral400}
-            keyboardType="numeric"
-            value={price}
-            onChangeText={setPrice}
-          />
-        </View>
+        {/* ---- THE SPLIT, computed not entered ---- */}
+        {selectedPark && (
+          <>
+            <Text style={styles.label}>THE SPLIT</Text>
 
-        {splitPreview && (
-          <Text style={styles.splitNote}>
-            Covers up to ${splitPreview} of field cost at a full roster
-          </Text>
+            {isFreeField ? (
+              <View style={styles.splitCard}>
+                <Text style={styles.splitFree}>Free field</Text>
+                <Text style={styles.splitNote}>
+                  {selectedPark.name} does not charge, so nobody pays anything
+                </Text>
+              </View>
+            ) : split ? (
+              <View style={styles.splitCard}>
+                <View style={styles.splitRow}>
+                  <Text style={styles.splitKey}>
+                    Field cost · {duration === 60 ? '1 hr' : duration === 90 ? '1.5 hr' : '2 hr'}
+                  </Text>
+                  <Text style={styles.splitVal}>${split.total.toFixed(2)}</Text>
+                </View>
+
+                <View style={styles.splitRule} />
+
+                <View style={styles.splitRow}>
+                  <Text style={styles.splitBigKey}>Each player pays</Text>
+                  <Text style={styles.splitBigVal}>${split.atFull.toFixed(2)}</Text>
+                </View>
+
+                {split.atMin && split.atMin !== split.atFull && (
+                  <Text style={styles.splitNote}>
+                    ${split.atMin.toFixed(2)} each if only {minPlayers} show up
+                  </Text>
+                )}
+              </View>
+            ) : null}
+          </>
         )}
 
         <TouchableOpacity
@@ -469,7 +510,6 @@ const styles = StyleSheet.create({
   },
   icon: { marginRight: 12 },
   input: { flex: 1, fontSize: 16, color: COLORS.snow, height: '100%' },
-  dollarSign: { fontSize: 16, color: COLORS.primary, fontWeight: '800', marginRight: 5 },
 
   dateButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -501,6 +541,7 @@ const styles = StyleSheet.create({
   parkCardActive: { borderColor: COLORS.primary, backgroundColor: COLORS.limeDim },
   parkName: { fontSize: 15.5, fontWeight: '600', color: COLORS.neutral800 },
   parkNameActive: { color: COLORS.snow, fontWeight: '700' },
+  parkRate: { fontSize: 12.5, color: COLORS.mute, marginTop: 3, fontWeight: '600' },
   noParks: { fontSize: 14, color: COLORS.mute, fontStyle: 'italic', paddingVertical: 8 },
 
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 14 },
@@ -521,10 +562,25 @@ const styles = StyleSheet.create({
   repeatTitle: { fontSize: 15, fontWeight: '700', color: COLORS.snow },
   repeatSub: { fontSize: 12, color: COLORS.mute, marginTop: 3 },
 
-  splitNote: {
-    color: COLORS.faint, fontSize: 12,
-    textAlign: 'center', marginTop: -10, marginBottom: 18,
+  /* split preview */
+  splitCard: {
+    backgroundColor: COLORS.cardFill, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: COLORS.line, marginBottom: 24,
   },
+  splitRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', paddingVertical: 6,
+  },
+  splitKey: { color: COLORS.mute, fontSize: 13.5, fontWeight: '500' },
+  splitVal: { color: COLORS.snow, fontSize: 14, fontWeight: '700' },
+  splitRule: { height: 1, backgroundColor: COLORS.line, marginVertical: 8 },
+  splitBigKey: { color: COLORS.snow, fontSize: 15, fontWeight: '700' },
+  splitBigVal: {
+    color: COLORS.primary, fontSize: 24,
+    fontWeight: '800', letterSpacing: -0.8,
+  },
+  splitFree: { color: COLORS.primary, fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
+  splitNote: { color: COLORS.faint, fontSize: 12, marginTop: 8, fontWeight: '600', lineHeight: 17 },
 
   postButton: {
     backgroundColor: COLORS.primary, height: 56, borderRadius: 16,
