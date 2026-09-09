@@ -6,11 +6,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { formatGameTime, formatSport, sportEmoji } from '../utils/format';
 import { COLORS } from '../theme/colors';
-import Svg, { Path } from 'react-native-svg';
 import ScreenHeader from '../components/ScreenHeader';
+import NextUpCard from '../components/NextUpCard';
 
 export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
   const [sections, setSections] = useState([]);
+  const [nextUp, setNextUp] = useState(null);
+  const [nextUpPlayers, setNextUpPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -49,6 +51,37 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
       { title: 'Joined', data: joinedUpcoming },
       { title: 'Past', data: past },
     ]);
+
+    // Soonest upcoming game becomes the hero card
+    const upcomingById = {};
+    [...organizing, ...joinedUpcoming].forEach((g) => {
+      upcomingById[g.game_id] = g;
+    });
+    const soonest = Object.values(upcomingById).sort(
+      (a, b) => new Date(a.start_time) - new Date(b.start_time)
+    )[0];
+
+    setNextUp(soonest || null);
+
+    if (soonest) {
+      const { data: roster } = await supabase
+        .from('bookings')
+        .select('player_id, users(full_name)')
+        .eq('game_id', soonest.game_id)
+        .order('joined_at', { ascending: true });
+
+      const mapped = (roster || []).map((r) => ({
+        full_name: r.users?.full_name || 'Player',
+        isYou: r.player_id === userId,
+      }));
+
+      // Put "you" first so the lime avatar leads the row
+      mapped.sort((a, b) => (b.isYou ? 1 : 0) - (a.isYou ? 1 : 0));
+      setNextUpPlayers(mapped);
+    } else {
+      setNextUpPlayers([]);
+    }
+
     setLoading(false);
   }
 
@@ -149,15 +182,6 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.sproutWrap} pointerEvents="none">
-        <Svg width={260} height={260} viewBox="0 0 300 300" fill="none">
-          <Path d="M0 260 Q150 225 300 260 L300 320 L0 320 Z" fill={COLORS.soilDark} opacity={0.35} />
-          <Path d="M150 260 C150 228 150 200 150 168" stroke={COLORS.soilDark} strokeWidth={5} strokeLinecap="round" />
-          <Path d="M150 200 C122 191 105 163 113 133 C143 143 151 171 150 200 Z" fill={COLORS.soil} opacity={0.85} />
-          <Path d="M150 182 C178 172 195 143 187 115 C159 125 150 154 150 182 Z" fill={COLORS.soilDark} opacity={0.75} />
-        </Svg>
-      </View>
-
       <ScreenHeader
         title="My Games"
         right={
@@ -179,6 +203,7 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
           keyExtractor={(item) => item.game_id}
           stickySectionHeadersEnabled={false}
           contentContainerStyle={{ padding: 20 }}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -186,6 +211,14 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
               tintColor={COLORS.primary}
               colors={[COLORS.primary]}
               progressBackgroundColor={COLORS.inkRaised}
+            />
+          }
+          ListHeaderComponent={
+            <NextUpCard
+              game={nextUp}
+              players={nextUpPlayers}
+              onOpen={() => nextUp && onSelectGame(nextUp)}
+              onOpenChat={() => nextUp && onSelectGame(nextUp)}
             />
           }
           renderSectionHeader={({ section }) =>
@@ -311,7 +344,6 @@ const styles = StyleSheet.create({
     padding: 40, backgroundColor: COLORS.ink,
   },
 
-  /* empty */
   emptyMark: {
     width: 15, height: 15, backgroundColor: COLORS.primary,
     borderRadius: 3, transform: [{ rotate: '45deg' }], marginBottom: 20,
@@ -319,7 +351,6 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: '700', color: COLORS.snow },
   emptySubtitle: { fontSize: 14, color: COLORS.mute, marginTop: 6, textAlign: 'center' },
 
-  /* section header */
   sectionHead: {
     flexDirection: 'row', alignItems: 'center',
     marginBottom: 14, marginTop: 10,
@@ -334,7 +365,6 @@ const styles = StyleSheet.create({
     color: COLORS.mute, letterSpacing: 1,
   },
 
-  /* card */
   card: {
     backgroundColor: COLORS.cardFill, borderRadius: 20, padding: 18,
     marginBottom: 14, borderWidth: 1, borderColor: COLORS.line,
@@ -362,7 +392,6 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   meta: { fontSize: 14, color: COLORS.neutral500, marginLeft: 6 },
 
-  /* actions */
   actionButton: {
     flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
     marginTop: 14, paddingHorizontal: 13, paddingVertical: 8,
@@ -378,7 +407,6 @@ const styles = StyleSheet.create({
   ratedRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 14 },
   ratedText: { fontSize: 12, color: COLORS.mute, marginLeft: 7 },
 
-  /* swipe */
   swipeAction: {
     backgroundColor: COLORS.danger,
     justifyContent: 'center',
@@ -389,15 +417,4 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   swipeActionText: { color: COLORS.snow, fontWeight: '800', fontSize: 12, marginTop: 4 },
-
-  sproutWrap: {
-    position: 'absolute',
-    top: '38%',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: -1,
-    elevation: -1,
-  },
 });
