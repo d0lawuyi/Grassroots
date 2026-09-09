@@ -1,6 +1,12 @@
 #!/usr/bin/env bun
 
-import { readFileSync, unlinkSync } from 'fs';
+declare const process: {
+  argv: string[];
+  env: Record<string, string | undefined>;
+  exit(code?: number): never;
+};
+
+const bunFile = (path: string) => Bun.file(path);
 
 // --- Types ---
 
@@ -440,10 +446,10 @@ async function submitReview(
 
 // --- Main ---
 
-function loadReview(filePath: string): ReviewPayload {
+async function loadReview(filePath: string): Promise<ReviewPayload> {
   let raw: string;
   try {
-    raw = readFileSync(filePath, 'utf-8');
+    raw = await bunFile(filePath).text();
   } catch (err) {
     throw new Error(`Cannot read file: ${filePath}\n${(err as Error).message}`);
   }
@@ -483,7 +489,7 @@ async function main(): Promise<void> {
   }
 
   const filePath = rest[0];
-  const review = loadReview(filePath);
+  const review = await loadReview(filePath);
 
   switch (command) {
     case 'local-preview': {
@@ -547,7 +553,7 @@ async function main(): Promise<void> {
       await submitReview(review.pull_number, reviewId, event);
       console.log('Review submitted successfully.');
       try {
-        unlinkSync(filePath);
+        await Bun.write(filePath, '');
       } catch {}
       break;
     }
@@ -569,7 +575,7 @@ async function main(): Promise<void> {
       });
       console.log('PR closed.');
       try {
-        unlinkSync(filePath);
+        await Bun.write(filePath, '');
       } catch {}
       break;
     }

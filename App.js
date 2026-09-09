@@ -9,8 +9,10 @@ import {
 } from 'react-native';
 
 import * as Location from 'expo-location';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { supabase } from './src/lib/supabase';
 
@@ -25,12 +27,15 @@ import GameChatScreen from './src/screens/GameChatScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import GameReviewScreen from './src/screens/GameReviewScreen';
 import SplashLoadingScreen from './src/screens/SplashLoadingScreen';
+import Onboarding from './src/screens/Onboarding';
 import { COLORS } from './src/theme/colors';
 
 const DEFAULT_LOCATION = {
   latitude: 39.7684,
   longitude: -86.1581,
 };
+
+const ONBOARDING_KEY = 'grassroots:onboarding_complete';
 
 export default function App() {
   const [loading, setLoading] = useState(true);
@@ -49,9 +54,34 @@ export default function App() {
   const [splashDone, setSplashDone] = useState(false);
   const [tabKey, setTabKey] = useState(0);
 
+  // null = still reading storage, true = seen it, false = show it
+  const [onboardingSeen, setOnboardingSeen] = useState(null);
+
   const switchTab = (tab) => {
     setActiveTab(tab);
     setTabKey((k) => k + 1);
+  };
+
+  useEffect(() => {
+    async function checkOnboarding() {
+      try {
+        const seen = await AsyncStorage.getItem(ONBOARDING_KEY);
+        setOnboardingSeen(seen === 'true');
+      } catch (error) {
+        // If storage fails, show it rather than skip it
+        setOnboardingSeen(false);
+      }
+    }
+    checkOnboarding();
+  }, []);
+
+  const finishOnboarding = async () => {
+    try {
+      await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+    } catch (error) {
+      // Not fatal — they will just see it again next launch
+    }
+    setOnboardingSeen(true);
   };
 
   useEffect(() => {
@@ -129,9 +159,23 @@ export default function App() {
     return <SplashLoadingScreen onFinish={() => setSplashDone(true)} />;
   }
 
+  if (onboardingSeen === null) {
+    return (
+      <View style={styles.center}>
+        <StatusBar style="light" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  if (!onboardingSeen) {
+    return <Onboarding onDone={finishOnboarding} />;
+  }
+
   if (authLoading) {
     return (
       <View style={styles.center}>
+        <StatusBar style="light" />
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
@@ -144,6 +188,7 @@ export default function App() {
   if (loading) {
     return (
       <View style={styles.center}>
+        <StatusBar style="light" />
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Loading Grassroots</Text>
       </View>
@@ -152,6 +197,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <StatusBar style="light" />
       <View style={styles.container}>
         <View style={styles.content}>
 
@@ -198,7 +244,7 @@ export default function App() {
             <Ionicons
               name="compass-outline"
               size={24}
-              color={activeTab === 'explore' ? COLORS.white : 'rgba(255,255,255,0.6)'}
+              color={activeTab === 'explore' ? COLORS.primary : COLORS.mute}
             />
             <Text style={[styles.tabText, activeTab === 'explore' && styles.tabTextActive]}>
               Explore
@@ -209,7 +255,7 @@ export default function App() {
             <Ionicons
               name="chatbubble-outline"
               size={24}
-              color={activeTab === 'messages' ? COLORS.white : 'rgba(255,255,255,0.6)'}
+              color={activeTab === 'messages' ? COLORS.primary : COLORS.mute}
             />
             <Text style={[styles.tabText, activeTab === 'messages' && styles.tabTextActive]}>
               Chats
@@ -220,7 +266,7 @@ export default function App() {
             <Ionicons
               name="calendar-outline"
               size={24}
-              color={activeTab === 'mygames' ? COLORS.white : 'rgba(255,255,255,0.6)'}
+              color={activeTab === 'mygames' ? COLORS.primary : COLORS.mute}
             />
             <Text style={[styles.tabText, activeTab === 'mygames' && styles.tabTextActive]}>
               My Games
@@ -231,7 +277,7 @@ export default function App() {
             <Ionicons
               name="person-outline"
               size={24}
-              color={activeTab === 'profile' ? COLORS.white : 'rgba(255,255,255,0.6)'}
+              color={activeTab === 'profile' ? COLORS.primary : COLORS.mute}
             />
             <Text style={[styles.tabText, activeTab === 'profile' && styles.tabTextActive]}>
               Profile
@@ -322,7 +368,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.neutral50,
+    backgroundColor: COLORS.ink,
   },
 
   content: {
@@ -333,20 +379,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.ink,
   },
 
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: COLORS.neutral500,
+    color: COLORS.mute,
     fontWeight: '500',
   },
 
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: COLORS.primaryDark,
-    borderTopWidth: 0,
+    backgroundColor: COLORS.inkRaised,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.line,
     paddingTop: 8,
     paddingBottom: 16,
   },
@@ -361,17 +408,17 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.6)',
+    color: COLORS.mute,
     marginTop: 3,
   },
 
   tabTextActive: {
-    color: COLORS.white,
+    color: COLORS.primary,
   },
 
   sheetBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
   },
 });
