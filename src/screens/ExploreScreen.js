@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator, Animated,
   TouchableOpacity, Image, Modal, RefreshControl, TextInput, Platform,
+  Dimensions, ScrollView,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,8 +11,23 @@ import { formatSport, sportEmoji } from '../utils/format';
 import { COLORS } from '../theme/colors';
 import { DARK_MAP } from '../theme/mapStyle';
 import ScreenHeader from '../components/ScreenHeader';
+import { fetchForecast, describeWeather, isRoughWeather, hourKey } from '../api/weather';
 
 /* ---------- helpers ---------- */
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const PANEL_W = SCREEN_W - 40;
+
+function distanceMiles(lat1, lng1, lat2, lng2) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const R = 3958.76;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
 
 function spotsLabel(count, maxPlayers, minToConfirm, status) {
   const open = Math.max(maxPlayers - count, 0);
@@ -93,19 +109,32 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
   const [search, setSearch] = useState('');
   const [sortMode, setSortMode] = useState('soonest');
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [forecast, setForecast] = useState({});
+  const [favoriteParkIds, setFavoriteParkIds] = useState(new Set());
+  const [panelIndex, setPanelIndex] = useState(0);
+  const pagerRef = useRef(null);
 
   async function fetchAll() {
-    const [gamesRes, parksRes] = await Promise.all([
+    const [gamesRes, parksRes, favRes] = await Promise.all([
       supabase
         .from('games')
         .select('*, parks(name), bookings(player_id, users(full_name, profile_photo_url))')
         .in('status', ['open', 'confirmed'])
         .order('start_time', { ascending: true }),
       supabase.from('parks').select('*').eq('status', 'active'),
+      supabase.from('favorite_parks').select('park_id').eq('user_id', userId),
     ]);
 
     setGames(gamesRes.data || []);
     setParks(parksRes.data || []);
+    setFavoriteParkIds(new Set((favRes.data || []).map((f) => f.park_id)));
+
+    // One forecast for the metro area — close enough across Indianapolis
+    const data = await fetchForecast(
+      userLocation?.latitude || 39.7684,
+      userLocation?.longitude || -86.1581
+    );
+    setForecast(data);
   }
 
   useEffect(() => {
@@ -122,6 +151,18 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
     setRefreshing(false);
   };
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setPanelIndex((prev) => {
+        const next = (prev + 1) % 3;
+        pagerRef.current?.scrollTo({ x: next * PANEL_W, animated: true });
+        return next;
+      });
+    }, 6000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   const getCount = (game) => (game.bookings || []).length;
 
   const getPlayers = (game) =>
@@ -133,6 +174,45 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
     () => new Set(games.map((g) => g.park_id).filter(Boolean)),
     [games]
   );
+
+  const myNextGame = useMemo(() => {
+    const mine = games.filter((g) =>
+      (g.bookings || []).some((b) => b.player_id === userId)
+    );
+    return mine.length > 0 ? mine[0] : null;
+  }, [games, userId]);
+
+  const recommended = useMemo(() => {
+    const parkById = {};
+    parks.forEach((p) => { parkById[p.park_id] = p; });
+
+    const notMine = games.filter(
+      (g) => !(g.bookings || []).some((b) => b.player_id === userId)
+    );
+
+    const scored = notMine.map((g) => {
+      const park = parkById[g.park_id];
+      const isFav = favoriteParkIds.has(g.park_id);
+      const dist =
+        park?.latitude != null && userLocation
+          ? distanceMiles(
+              userLocation.latitude,
+              userLocation.longitude,
+              Number(park.latitude),
+              Number(park.longitude)
+            )
+          : 9999;
+      return { game: g, park, isFav, dist };
+    });
+
+    // Saved parks first, then nearest
+    scored.sort((a, b) => {
+      if (a.isFav !== b.isFav) return a.isFav ? -1 : 1;
+      return a.dist - b.dist;
+    });
+
+    return scored[0] || null;
+  }, [games, parks, favoriteParkIds, userLocation, userId]);
 
   const filteredGames = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -203,39 +283,130 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
               <ScreenHeader title="Explore" subtitle="Games near you" />
             </View>
 
-            <TouchableOpacity
-              style={styles.mapPreview}
-              activeOpacity={0.9}
-              onPress={() => setMapExpanded(true)}
-            >
-              <MapView
-                {...mapProps}
-                style={StyleSheet.absoluteFill}
-                initialRegion={region}
-                scrollEnabled={false}
-                zoomEnabled={false}
-                pitchEnabled={false}
-                rotateEnabled={false}
+            <View style={styles.pagerWrap}>
+              <ScrollView
+                ref={pagerRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(e) =>
+                  setPanelIndex(Math.round(e.nativeEvent.contentOffset.x / PANEL_W))
+                }
+                scrollEventThrottle={16}
               >
-                {mappable.map((park) => (
-                  <Marker
-                    key={park.park_id}
-                    coordinate={{
-                      latitude: Number(park.latitude),
-                      longitude: Number(park.longitude),
-                    }}
-                    tracksViewChanges={false}
-                  >
-                    <ParkPin live={activeParkIds.has(park.park_id)} />
-                  </Marker>
-                ))}
-              </MapView>
+                {/* PANEL 1 — your next game */}
+                <View style={styles.panel}>
+                  {myNextGame ? (
+                    <TouchableOpacity
+                      style={styles.panelInner}
+                      activeOpacity={0.9}
+                      onPress={() => onSelectGame(myNextGame)}
+                    >
+                      <Text style={styles.panelKicker}>YOUR NEXT GAME</Text>
+                      <Text style={styles.panelTitle} numberOfLines={1}>
+                        {myNextGame.title}
+                      </Text>
+                      <Text style={styles.panelSub} numberOfLines={1}>
+                        {myNextGame.parks?.name || 'Park'}
+                      </Text>
+                      <View style={styles.panelFooter}>
+                        <Text style={styles.panelCountdown}>
+                          {timeLabel(myNextGame.start_time).text}
+                        </Text>
+                        <Text style={styles.panelMeta}>
+                          {(myNextGame.bookings || []).length}/{myNextGame.max_players} in
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.panelInner}>
+                      <Text style={styles.panelKicker}>YOUR NEXT GAME</Text>
+                      <Text style={styles.panelEmptyTitle}>Nothing booked</Text>
+                      <Text style={styles.panelSub}>Join a game below to fill this</Text>
+                    </View>
+                  )}
+                </View>
 
-              <View style={styles.mapOverlay}>
-                <Ionicons name="expand-outline" size={15} color={COLORS.primary} />
-                <Text style={styles.mapOverlayText}>Browse parks</Text>
+                {/* PANEL 2 — map */}
+                <TouchableOpacity
+                  style={styles.panel}
+                  activeOpacity={0.9}
+                  onPress={() => setMapExpanded(true)}
+                >
+                  <View style={styles.mapPreview}>
+                    <MapView
+                      {...mapProps}
+                      style={StyleSheet.absoluteFill}
+                      initialRegion={region}
+                      scrollEnabled={false}
+                      zoomEnabled={false}
+                      pitchEnabled={false}
+                      rotateEnabled={false}
+                    >
+                      {mappable.map((park) => (
+                        <Marker
+                          key={park.park_id}
+                          coordinate={{
+                            latitude: Number(park.latitude),
+                            longitude: Number(park.longitude),
+                          }}
+                          tracksViewChanges={false}
+                        >
+                          <ParkPin live={activeParkIds.has(park.park_id)} />
+                        </Marker>
+                      ))}
+                    </MapView>
+
+                    <View style={styles.mapOverlay}>
+                      <Ionicons name="expand-outline" size={15} color={COLORS.primary} />
+                      <Text style={styles.mapOverlayText}>Browse parks</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                {/* PANEL 3 — recommended */}
+                <View style={styles.panel}>
+                  {recommended ? (
+                    <TouchableOpacity
+                      style={styles.panelInner}
+                      activeOpacity={0.9}
+                      onPress={() => onSelectGame(recommended.game)}
+                    >
+                      <Text style={styles.panelKicker}>
+                        {recommended.isFav ? 'AT A PARK YOU SAVED' : 'CLOSEST TO YOU'}
+                      </Text>
+                      <Text style={styles.panelTitle} numberOfLines={1}>
+                        {recommended.game.title}
+                      </Text>
+                      <Text style={styles.panelSub} numberOfLines={1}>
+                        {recommended.park?.name || 'Park'}
+                        {recommended.dist < 9999 ? ` · ${recommended.dist.toFixed(1)} mi` : ''}
+                      </Text>
+                      <View style={styles.panelFooter}>
+                        <Text style={styles.panelCountdown}>
+                          {timeLabel(recommended.game.start_time).text}
+                        </Text>
+                        <Text style={styles.panelMeta}>
+                          ${Number(recommended.game.base_price_per_player).toFixed(0)}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.panelInner}>
+                      <Text style={styles.panelKicker}>RECOMMENDED</Text>
+                      <Text style={styles.panelEmptyTitle}>Nothing to suggest yet</Text>
+                      <Text style={styles.panelSub}>Save a park to get better picks</Text>
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+
+              <View style={styles.dots}>
+                {[0, 1, 2].map((i) => (
+                  <View key={i} style={[styles.dot, panelIndex === i && styles.dotActive]} />
+                ))}
               </View>
-            </TouchableOpacity>
+            </View>
 
             <View style={styles.searchBox}>
               <Ionicons name="search-outline" size={19} color={COLORS.mute} />
@@ -290,6 +461,8 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
           const isConfirmed = item.status === 'confirmed';
           const when = timeLabel(item.start_time);
           const { dow, day } = dateParts(item.start_time);
+          const weather = forecast[hourKey(item.start_time)];
+          const rough = weather ? isRoughWeather(weather.code) : false;
 
           return (
             <TouchableOpacity style={styles.card} onPress={() => onSelectGame(item)} activeOpacity={0.85}>
@@ -320,6 +493,19 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
                       <Text style={styles.skillBadge}>
                         {item.skill_level.charAt(0).toUpperCase() + item.skill_level.slice(1)}
                       </Text>
+                    )}
+                    {weather && (
+                      <View style={[styles.weatherChip, rough && styles.weatherChipRough]}>
+                        <Ionicons
+                          name={describeWeather(weather.code).icon}
+                          size={12}
+                          color={rough ? COLORS.warning : COLORS.mute}
+                        />
+                        <Text style={[styles.weatherText, rough && styles.weatherTextRough]}>
+                          {weather.temp}°
+                          {weather.precipChance >= 40 ? ` · ${weather.precipChance}%` : ''}
+                        </Text>
+                      </View>
                     )}
                   </View>
                 </View>
@@ -457,12 +643,38 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.ink },
   listContent: { paddingHorizontal: 20, paddingBottom: 100 },
 
+  /* pager */
+  pagerWrap: { marginTop: 16 },
+  panel: { width: PANEL_W, height: 170 },
+  panelInner: {
+    flex: 1, borderRadius: 18, padding: 18, justifyContent: 'center',
+    backgroundColor: COLORS.cardFill, borderWidth: 1, borderColor: COLORS.line,
+  },
+  panelKicker: {
+    fontSize: 9.5, fontWeight: '800', color: COLORS.primary,
+    letterSpacing: 1.4, marginBottom: 10,
+  },
+  panelTitle: { fontSize: 22, fontWeight: '800', color: COLORS.snow, letterSpacing: -0.5 },
+  panelEmptyTitle: { fontSize: 19, fontWeight: '700', color: COLORS.mute },
+  panelSub: { fontSize: 13, color: COLORS.mute, marginTop: 4 },
+  panelFooter: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 16,
+  },
+  panelCountdown: { fontSize: 15, fontWeight: '800', color: COLORS.primary },
+  panelMeta: { fontSize: 13, fontWeight: '600', color: COLORS.mute },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 10 },
+  dot: {
+    width: 5, height: 5, borderRadius: 3,
+    backgroundColor: 'rgba(244,246,242,0.2)',
+  },
+  dotActive: { backgroundColor: COLORS.primary, width: 16 },
+
   /* map */
   mapPreview: {
-    height: 170,
+    flex: 1,
     borderRadius: 18,
     overflow: 'hidden',
-    marginTop: 16,
     backgroundColor: COLORS.inkRaised,
     borderWidth: 1,
     borderColor: COLORS.line,
@@ -550,6 +762,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.neutral100,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, overflow: 'hidden',
   },
+  weatherChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(244,246,242,0.07)',
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8,
+  },
+  weatherChipRough: { backgroundColor: 'rgba(253,186,116,0.14)' },
+  weatherText: { fontSize: 10.5, fontWeight: '600', color: COLORS.mute },
+  weatherTextRough: { color: COLORS.warning },
 
   fillBarContainer: {
     backgroundColor: COLORS.neutral200, borderRadius: 3, height: 4,
