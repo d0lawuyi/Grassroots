@@ -1,7 +1,31 @@
 {
-  "plugins": [
-    "expo-status-bar",
-    "@react-native-community/datetimepicker",
-    "expo-font"
-  ]
+  "expo": {
+    "name": "Grassroots",
+    "slug": "grassroots",
+    "scheme": "grassroots",
+    "version": "1.0.0",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.grassroots.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.grassroots.app"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#A3E635"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "fa591a6f-c67a-4c2f-8772-9ee6b02a733e"
+      }
+    }
+  }
 }

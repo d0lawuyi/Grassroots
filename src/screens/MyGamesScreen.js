@@ -4,13 +4,14 @@ import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeabl
 import Reanimated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
+import { cancelGameReminders } from '../lib/notifications';
 import { formatGameTime, formatSport, sportEmoji } from '../utils/format';
 import { COLORS } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
 import NextUpCard from '../components/NextUpCard';
 import { openDirections } from '../utils/directions';
 
-export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
+export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpenSeries }) {
   const [sections, setSections] = useState([]);
   const [nextUp, setNextUp] = useState(null);
   const [nextUpPlayers, setNextUpPlayers] = useState([]);
@@ -113,7 +114,7 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
       .delete()
       .eq('player_id', userId)
       .eq('game_id', game.game_id);
-
+    await cancelGameReminders(game.game_id);
     if (error) {
       Alert.alert('Error', error.message);
       return;
@@ -183,11 +184,11 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader
+            <ScreenHeader
         title="My Games"
         right={
-          <TouchableOpacity onPress={() => supabase.auth.signOut()}>
-            <Text style={styles.signOutText}>Sign out</Text>
+          <TouchableOpacity onPress={onOpenSeries}>
+            <Ionicons name="repeat" size={22} color={COLORS.primary} />
           </TouchableOpacity>
         }
       />

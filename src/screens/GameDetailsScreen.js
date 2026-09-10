@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Image, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
+import { scheduleGameReminders, cancelGameReminders } from '../lib/notifications';
 import { formatGameTime, formatSport, sportEmoji } from '../utils/format';
 import { COLORS } from '../theme/colors';
 
@@ -121,8 +122,9 @@ export default function GameDetailsScreen({ game, park, userId, onClose }) {
           status: 'joined',
           amount_paid: game.base_price_per_player,
         });
-      if (error) throw error;
+            if (error) throw error;
 
+      await scheduleGameReminders({ ...game, parks: park });
       await fetchRoster();
     } catch (error) {
       Alert.alert('Could Not Join', error.message);
@@ -179,8 +181,9 @@ export default function GameDetailsScreen({ game, park, userId, onClose }) {
         .delete()
         .eq('game_id', game.game_id)
         .eq('player_id', userId);
-      if (error) throw error;
+        if (error) throw error;
 
+      await cancelGameReminders(game.game_id);
       await fetchRoster();
     } catch (error) {
       Alert.alert('Could Not Leave', error.message);

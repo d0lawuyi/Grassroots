@@ -27,6 +27,7 @@ import GameChatScreen from './src/screens/GameChatScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import GameReviewScreen from './src/screens/GameReviewScreen';
 import SplashLoadingScreen from './src/screens/SplashLoadingScreen';
+import MySeriesScreen from './src/screens/MySeriesScreen';
 import Onboarding from './src/screens/Onboarding';
 import { COLORS } from './src/theme/colors';
 
@@ -53,6 +54,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('explore');
   const [splashDone, setSplashDone] = useState(false);
   const [tabKey, setTabKey] = useState(0);
+    const [showSeries, setShowSeries] = useState(false);
 
   // null = still reading storage, true = seen it, false = show it
   const [onboardingSeen, setOnboardingSeen] = useState(null);
@@ -227,14 +229,15 @@ export default function App() {
 
           {/* MY GAMES TAB */}
           {activeTab === 'mygames' && (
-            <MyGamesScreen
+                        <MyGamesScreen
               key={tabKey}
               userId={session.user.id}
               onSelectGame={openGame}
               onRateGame={(game) => setReviewGame(game)}
+              onOpenSeries={() => setShowSeries(true)}
             />
           )}
-
+          
           {/* PROFILE TAB */}
           {activeTab === 'profile' && (
             <ProfileScreen key={tabKey} userId={session.user.id} />
@@ -362,11 +365,27 @@ export default function App() {
               setTabKey((k) => k + 1);
             }}
           />
+                </Modal>
+
+        {/* RECURRING GAMES */}
+        <Modal
+          visible={showSeries}
+          animationType="slide"
+          onRequestClose={() => setShowSeries(false)}
+        >
+          <MySeriesScreen
+            userId={session.user.id}
+            onClose={() => {
+              setShowSeries(false);
+              setTabKey((k) => k + 1);
+            }}
+          />
         </Modal>
       </View>
     </GestureHandlerRootView>
   );
 }
+       
 
 const styles = StyleSheet.create({
   container: {
