@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Image,
-  ActivityIndicator, TextInput, Alert, RefreshControl,
+  ActivityIndicator, TextInput, Alert, RefreshControl, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -13,20 +13,27 @@ export default function ProfileScreen({ userId }) {
   const [profile, setProfile] = useState(null);
   const [badges, setBadges] = useState([]);
   const [allBadges, setAllBadges] = useState([]);
-  const [stats, setStats] = useState({ played: 0, organized: 0 });
+  const [stats, setStats] = useState({ played: 0, organized: 0, rated: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
 
+  const barGrow = useRef(new Animated.Value(0)).current;
+
   async function fetchProfile() {
-    const [userRes, badgeRes, catalogRes, playedRes, orgRes] = await Promise.all([
+    const [userRes, badgeRes, catalogRes, playedRes, orgRes, ratedRes] = await Promise.all([
       supabase.from('users').select('*').eq('user_id', userId).single(),
       supabase.from('user_badges').select('badge_id, earned_at').eq('user_id', userId),
       supabase.from('badges').select('*').order('sort_order'),
       supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('player_id', userId),
       supabase.from('games').select('*', { count: 'exact', head: true }).eq('organizer_id', userId),
+      supabase
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('player_id', userId)
+        .not('rating_given', 'is', null),
     ]);
 
     setProfile(userRes.data);
@@ -39,7 +46,11 @@ export default function ProfileScreen({ userId }) {
     });
     setBadges((badgeRes.data || []).map((b) => b.badge_id));
     setAllBadges(catalogRes.data || []);
-    setStats({ played: playedRes.count || 0, organized: orgRes.count || 0 });
+    setStats({
+      played: playedRes.count || 0,
+      organized: orgRes.count || 0,
+      rated: ratedRes.count || 0,
+    });
   }
 
   useEffect(() => {
@@ -49,6 +60,20 @@ export default function ProfileScreen({ userId }) {
     }
     if (userId) init();
   }, [userId]);
+
+  // sweep the reliability bar once the score is in
+  useEffect(() => {
+    if (loading) return;
+    barGrow.setValue(0);
+    const anim = Animated.timing(barGrow, {
+      toValue: 1,
+      duration: 800,
+      delay: 150,
+      useNativeDriver: false,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [loading, profile?.reliability_score, barGrow]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -91,7 +116,6 @@ export default function ProfileScreen({ userId }) {
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-      // Cache-bust so the new image shows immediately
       const publicUrl = `${data.publicUrl}?t=${Date.now()}`;
 
       const { error: updateError } = await supabase
@@ -139,6 +163,9 @@ export default function ProfileScreen({ userId }) {
   }
 
   const rating = Number(profile?.reliability_score ?? 0);
+  const ratingPercent = Math.max(Math.min((rating / 5) * 100, 100), 0);
+  const hasHistory = stats.played > 0;
+
   const initials = (profile?.full_name || 'P')
     .split(' ')
     .map((n) => n[0])
@@ -148,6 +175,15 @@ export default function ProfileScreen({ userId }) {
 
   const locationLine = [profile?.home_city, profile?.home_state].filter(Boolean).join(', ');
   const originLine = [profile?.origin_city, profile?.origin_state].filter(Boolean).join(', ');
+
+  const barWidth = barGrow.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', `${ratingPercent}%`],
+  });
+
+  const joinedLabel = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString([], { month: 'short', year: 'numeric' })
+    : null;
 
   return (
     <View style={styles.container}>
@@ -207,7 +243,6 @@ export default function ProfileScreen({ userId }) {
             <Text style={styles.name}>{profile?.full_name || 'Player'}</Text>
           )}
 
-          {/* Star rating */}
           <View style={styles.starRow}>
             {[1, 2, 3, 4, 5].map((i) => (
               <Ionicons
@@ -235,6 +270,73 @@ export default function ProfileScreen({ userId }) {
               <Text style={styles.locationText}>From {originLine}</Text>
             </View>
           ) : null}
+        </View>
+
+        {/* ---- RELIABILITY ---- */}
+        <View style={styles.card}>
+          <View style={styles.cardHead}>
+            <Text style={styles.cardTitle}>YOUR RECORD</Text>
+            {joinedLabel && (
+              <Text style={styles.cardCount}>SINCE {joinedLabel.toUpperCase()}</Text>
+            )}
+          </View>
+
+          {hasHistory ? (
+            <>
+              <View style={styles.barTrack}>
+                <Animated.View style={[styles.barFill, { width: barWidth }]} />
+              </View>
+              <Text style={styles.barNote}>
+                Reliability across {stats.played} {stats.played === 1 ? 'game' : 'games'}
+              </Text>
+
+              <View style={styles.rule} />
+
+              <View style={styles.recordRow}>
+                <Ionicons name="football" size={14} color={COLORS.primary} />
+                <Text style={styles.recordKey}>Games played</Text>
+                <Text style={styles.recordVal}>{stats.played}</Text>
+              </View>
+
+              <View style={styles.recordRow}>
+                <Ionicons name="megaphone" size={14} color={COLORS.primary} />
+                <Text style={styles.recordKey}>Games hosted</Text>
+                <Text style={styles.recordVal}>{stats.organized}</Text>
+              </View>
+
+              <View style={styles.recordRow}>
+                <Ionicons name="star" size={14} color={COLORS.primary} />
+                <Text style={styles.recordKey}>Games you rated</Text>
+                <Text style={styles.recordVal}>
+                  {stats.rated} of {stats.played}
+                </Text>
+              </View>
+
+              <View style={styles.recordRow}>
+                <Ionicons
+                  name={profile?.profile_photo_url ? 'shield-checkmark' : 'shield-outline'}
+                  size={14}
+                  color={profile?.profile_photo_url ? COLORS.primary : COLORS.mute}
+                />
+                <Text style={styles.recordKey}>Profile photo</Text>
+                <Text
+                  style={[
+                    styles.recordVal,
+                    !profile?.profile_photo_url && styles.recordValMuted,
+                  ]}
+                >
+                  {profile?.profile_photo_url ? 'added' : 'not yet'}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <View style={styles.emptyRecord}>
+              <Text style={styles.emptyRecordTitle}>No record yet</Text>
+              <Text style={styles.emptyRecordText}>
+                Play your first game and your reliability starts building here
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Editable location fields */}
@@ -333,6 +435,7 @@ export default function ProfileScreen({ userId }) {
             })}
           </View>
         </View>
+
         {__DEV__ && (
           <TouchableOpacity
             style={styles.devReset}
@@ -374,7 +477,6 @@ const styles = StyleSheet.create({
   },
   saveBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.ink },
 
-  /* identity */
   identityCard: {
     alignItems: 'center', backgroundColor: COLORS.cardFill,
     borderRadius: 22, padding: 24, borderWidth: 1, borderColor: COLORS.line,
@@ -403,7 +505,6 @@ const styles = StyleSheet.create({
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 9 },
   locationText: { fontSize: 13, color: COLORS.mute, fontWeight: '500' },
 
-  /* cards */
   card: {
     backgroundColor: COLORS.cardFill, borderRadius: 22, padding: 18,
     marginTop: 14, borderWidth: 1, borderColor: COLORS.line,
@@ -421,13 +522,36 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2, marginBottom: 12,
   },
 
+  /* reliability */
+  barTrack: {
+    height: 4, borderRadius: 2,
+    backgroundColor: 'rgba(244,246,242,0.10)', overflow: 'hidden',
+  },
+  barFill: { height: '100%', borderRadius: 2, backgroundColor: COLORS.primary },
+  barNote: { color: COLORS.mute, fontSize: 11.5, marginTop: 8, fontWeight: '600' },
+  rule: { height: 1, backgroundColor: COLORS.line, marginVertical: 14 },
+
+  recordRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 7 },
+  recordKey: {
+    color: COLORS.snow, fontSize: 13.5,
+    fontWeight: '600', marginLeft: 9, flex: 1,
+  },
+  recordVal: { color: COLORS.mute, fontSize: 12.5, fontWeight: '700' },
+  recordValMuted: { color: COLORS.faint },
+
+  emptyRecord: { paddingVertical: 6 },
+  emptyRecordTitle: { color: COLORS.snow, fontSize: 15, fontWeight: '700' },
+  emptyRecordText: {
+    color: COLORS.mute, fontSize: 13,
+    marginTop: 6, lineHeight: 19,
+  },
+
   fieldRow: { flexDirection: 'row', gap: 10 },
   input: {
     backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 12, paddingHorizontal: 14, height: 46,
     fontSize: 15, color: COLORS.snow, borderWidth: 1, borderColor: COLORS.line,
   },
 
-  /* stats */
   statsRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   statCard: {
     flex: 1, alignItems: 'center', backgroundColor: COLORS.cardFill,
@@ -439,7 +563,6 @@ const styles = StyleSheet.create({
     fontWeight: '800', letterSpacing: 1.4,
   },
 
-  /* badges */
   badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   badge: {
     width: '47%', backgroundColor: COLORS.paleGreen, borderRadius: 15, padding: 12,
@@ -455,18 +578,12 @@ const styles = StyleSheet.create({
   badgeNameLocked: { color: COLORS.neutral500 },
   badgeDesc: { fontSize: 11, color: COLORS.mute, marginTop: 3, lineHeight: 15 },
 
-  /* sign out */
   signOut: {
     alignItems: 'center', marginTop: 26, paddingVertical: 15,
     borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,107,107,0.25)',
   },
   signOutText: { color: COLORS.danger, fontWeight: '700', fontSize: 15 },
 
-    devReset: { alignItems: 'center', marginTop: 10, paddingVertical: 10 },
+  devReset: { alignItems: 'center', marginTop: 10, paddingVertical: 10 },
   devResetText: { color: COLORS.faint, fontSize: 12, fontWeight: '600' },
-
-
-
 });
-
-
