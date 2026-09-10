@@ -20,7 +20,7 @@ function countdown(startTime) {
   return `IN ${days} ${days === 1 ? 'DAY' : 'DAYS'}`;
 }
 
-export default function NextUpCard({ game, players = [], onOpen, onOpenChat }) {
+export default function NextUpCard({ game, players = [], onOpen, onOpenChat, onDirections }) {
   if (!game) return null;
 
   const time = new Date(game.start_time).toLocaleTimeString([], {
@@ -49,10 +49,11 @@ export default function NextUpCard({ game, players = [], onOpen, onOpenChat }) {
           <Ionicons name="chatbubble" size={11} color={COLORS.ink} />
           <Text style={s.chipText}>Group chat</Text>
         </TouchableOpacity>
-        <View style={s.chipGhost}>
+
+        <TouchableOpacity style={s.chipGhost} onPress={onDirections} activeOpacity={0.8}>
           <Ionicons name="navigate" size={11} color={COLORS.snow} />
           <Text style={s.chipGhostText}>Directions</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       <View style={s.roster}>

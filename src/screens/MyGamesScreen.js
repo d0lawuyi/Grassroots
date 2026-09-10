@@ -8,6 +8,7 @@ import { formatGameTime, formatSport, sportEmoji } from '../utils/format';
 import { COLORS } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
 import NextUpCard from '../components/NextUpCard';
+import { openDirections } from '../utils/directions';
 
 export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
   const [sections, setSections] = useState([]);
@@ -20,18 +21,18 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
     if (showSpinner) setLoading(true);
     const now = new Date().toISOString();
 
-    const { data: bookings } = await supabase
+        const { data: bookings } = await supabase
       .from('bookings')
-      .select('rating_given, games(*, parks(name))')
+      .select('rating_given, games(*, parks(name, latitude, longitude))')
       .eq('player_id', userId);
 
     const joined = (bookings || [])
       .filter((b) => b.games)
       .map((b) => ({ ...b.games, myRating: b.rating_given }));
 
-    const { data: orgGames } = await supabase
+       const { data: orgGames } = await supabase
       .from('games')
-      .select('*, parks(name)')
+      .select('*, parks(name, latitude, longitude)')
       .eq('organizer_id', userId);
 
     const organizing = (orgGames || []).filter((g) => g.start_time >= now);
@@ -213,14 +214,17 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame }) {
               progressBackgroundColor={COLORS.inkRaised}
             />
           }
-          ListHeaderComponent={
+
+                    ListHeaderComponent={
             <NextUpCard
               game={nextUp}
               players={nextUpPlayers}
               onOpen={() => nextUp && onSelectGame(nextUp)}
               onOpenChat={() => nextUp && onSelectGame(nextUp)}
+              onDirections={() => nextUp && openDirections(nextUp.parks)}
             />
           }
+          
           renderSectionHeader={({ section }) =>
             section.data.length > 0 ? (
               <View style={styles.sectionHead}>
