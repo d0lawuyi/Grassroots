@@ -18,6 +18,8 @@ export default function GameDetailsScreen({ game, park, userId, onClose }) {
   const [hasJoined, setHasJoined] = useState(false);
   const [loadingRoster, setLoadingRoster] = useState(true);
   const [parkRate, setParkRate] = useState(null);
+  const [onMyWay, setOnMyWay] = useState(false);
+  const [marking, setMarking] = useState(false);
 
   const shareAnim = useRef(new Animated.Value(0)).current;
 
@@ -27,13 +29,17 @@ export default function GameDetailsScreen({ game, park, userId, onClose }) {
 
     const { data } = await supabase
       .from('bookings')
-      .select('booking_id, player_id, joined_at, users(full_name, profile_photo_url)')
+      .select('booking_id, player_id, joined_at, on_my_way_at, users(full_name, profile_photo_url)')
       .eq('game_id', game.game_id)
       .order('joined_at', { ascending: true });
 
     const rows = data || [];
     setPlayers(rows);
     setHasJoined(rows.some((r) => r.player_id === userId));
+
+    const mine = rows.find((r) => r.player_id === userId);
+    setOnMyWay(!!mine?.on_my_way_at);
+
     setLoadingRoster(false);
   }
 
@@ -71,11 +77,8 @@ export default function GameDetailsScreen({ game, park, userId, onClose }) {
   const chargedTotal = fieldTotal * (1 + feePercent / 100);
   const isFreeField = fieldTotal <= 0;
 
-  // split across everyone in now, or across you alone if you'd be first
   const splitAcross = Math.max(playerCount + (hasJoined ? 0 : 1), 1);
   const yourShare = isFreeField ? 0 : chargedTotal / splitAcross;
-
-  // what it drops to at a full roster
   const shareAtFull = isFreeField ? 0 : chargedTotal / maxPlayers;
 
   useEffect(() => {
@@ -128,6 +131,35 @@ export default function GameDetailsScreen({ game, park, userId, onClose }) {
     }
   };
 
+  const markOnMyWay = async () => {
+    if (onMyWay || marking) return;
+    setMarking(true);
+
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ on_my_way_at: new Date().toISOString() })
+        .eq('game_id', game.game_id)
+        .eq('player_id', userId);
+
+      if (error) throw error;
+
+      // let the squad know
+      await supabase.from('game_chat').insert({
+        game_id: game.game_id,
+        sender_id: userId,
+        message: 'On my way',
+      });
+
+      setOnMyWay(true);
+      await fetchRoster();
+    } catch (error) {
+      Alert.alert('Could not update', error.message);
+    } finally {
+      setMarking(false);
+    }
+  };
+
   const confirmLeave = () => {
     Alert.alert(
       'Leave this game?',
@@ -160,6 +192,15 @@ export default function GameDetailsScreen({ game, park, userId, onClose }) {
   const fillPercent = Math.min((playerCount / maxPlayers) * 100, 100);
   const needed = Math.max((game?.min_players_to_confirm || 0) - playerCount, 0);
   const confirmed = needed === 0;
+
+  const onWayCount = players.filter((p) => p.on_my_way_at).length;
+
+  /* "On my way" only makes sense near kickoff */
+  const showOnMyWay = (() => {
+    if (!hasJoined || !game?.start_time) return false;
+    const ms = new Date(game.start_time).getTime() - Date.now();
+    return ms < 90 * 60000 && ms > -120 * 60000;
+  })();
 
   if (!game) return null;
 
@@ -293,7 +334,14 @@ export default function GameDetailsScreen({ game, park, userId, onClose }) {
           </View>
 
           <View style={styles.noteRow}>
-            {confirmed ? (
+            {onWayCount > 0 ? (
+              <>
+                <View style={styles.liveDot} />
+                <Text style={styles.noteConfirmed}>
+                  {onWayCount} on the way
+                </Text>
+              </>
+            ) : confirmed ? (
               <>
                 <View style={styles.liveDot} />
                 <Text style={styles.noteConfirmed}>Confirmed and going ahead</Text>
@@ -343,6 +391,13 @@ export default function GameDetailsScreen({ game, park, userId, onClose }) {
                       {isYou ? 'You' : name}
                     </Text>
 
+                    {row.on_my_way_at && (
+                      <View style={styles.onWayTag}>
+                        <Ionicons name="navigate" size={10} color={COLORS.primary} />
+                        <Text style={styles.onWayText}>On the way</Text>
+                      </View>
+                    )}
+
                     {isOrganizer && (
                       <Text style={styles.organizerTag}>Organizer</Text>
                     )}
@@ -368,12 +423,42 @@ export default function GameDetailsScreen({ game, park, userId, onClose }) {
       <View style={styles.footer}>
         {hasJoined ? (
           <View>
-            <View style={[styles.joinButton, styles.joinButtonJoined]}>
-              <Ionicons name="checkmark-circle" size={19} color={COLORS.primary} />
-              <Text style={[styles.joinButtonText, styles.joinButtonTextJoined]}>
-                You are in
-              </Text>
-            </View>
+            {showOnMyWay ? (
+              <TouchableOpacity
+                style={[styles.joinButton, onMyWay && styles.joinButtonJoined]}
+                onPress={markOnMyWay}
+                disabled={onMyWay || marking}
+                activeOpacity={0.85}
+              >
+                {marking ? (
+                  <ActivityIndicator color={COLORS.ink} />
+                ) : (
+                  <>
+                    <Ionicons
+                      name={onMyWay ? 'checkmark-circle' : 'navigate'}
+                      size={19}
+                      color={onMyWay ? COLORS.primary : COLORS.ink}
+                    />
+                    <Text
+                      style={[
+                        styles.joinButtonText,
+                        onMyWay && styles.joinButtonTextJoined,
+                      ]}
+                    >
+                      {onMyWay ? 'You are on the way' : 'On my way'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.joinButton, styles.joinButtonJoined]}>
+                <Ionicons name="checkmark-circle" size={19} color={COLORS.primary} />
+                <Text style={[styles.joinButtonText, styles.joinButtonTextJoined]}>
+                  You are in
+                </Text>
+              </View>
+            )}
+
             <TouchableOpacity onPress={confirmLeave} disabled={joining} style={styles.leaveLink}>
               <Text style={styles.leaveLinkText}>Leave game</Text>
             </TouchableOpacity>
@@ -530,7 +615,18 @@ const styles = StyleSheet.create({
   organizerTag: {
     fontSize: 10.5, fontWeight: '800', color: COLORS.primary, backgroundColor: COLORS.limeDim,
     paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, overflow: 'hidden',
-    letterSpacing: 0.3,
+    letterSpacing: 0.3, marginLeft: 6,
+  },
+
+  onWayTag: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: COLORS.limeDim,
+    paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: 8, marginLeft: 6,
+  },
+  onWayText: {
+    fontSize: 10, fontWeight: '800',
+    color: COLORS.primary, letterSpacing: 0.3,
   },
 
   openAvatar: {
