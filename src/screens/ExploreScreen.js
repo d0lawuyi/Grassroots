@@ -118,7 +118,7 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
     const [gamesRes, parksRes, favRes] = await Promise.all([
       supabase
         .from('games')
-        .select('*, parks(name), bookings(player_id, users(full_name, profile_photo_url))')
+        .select('*, parks(name, photos), bookings(player_id, users(full_name, profile_photo_url))')
         .in('status', ['open', 'confirmed'])
         .order('start_time', { ascending: true }),
       supabase.from('parks').select('*').eq('status', 'active'),
@@ -463,15 +463,25 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
           const { dow, day } = dateParts(item.start_time);
           const weather = forecast[hourKey(item.start_time)];
           const rough = weather ? isRoughWeather(weather.code) : false;
+          const photo = Array.isArray(item.parks?.photos) ? item.parks.photos[0] : null;
 
           return (
             <TouchableOpacity style={styles.card} onPress={() => onSelectGame(item)} activeOpacity={0.85}>
               <View style={styles.cardBody}>
-                {/* left rail — the lime date tile from onboarding */}
-                <View style={styles.dateBadge}>
-                  <Text style={styles.dateDow}>{dow}</Text>
-                  <Text style={styles.dateNum}>{day}</Text>
-                </View>
+                {photo ? (
+                  <View style={styles.thumbWrap}>
+                    <Image source={{ uri: photo }} style={styles.thumb} />
+                    <View style={styles.thumbDate}>
+                      <Text style={styles.thumbDateDow}>{dow}</Text>
+                      <Text style={styles.thumbDateNum}>{day}</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.dateBadge}>
+                    <Text style={styles.dateDow}>{dow}</Text>
+                    <Text style={styles.dateNum}>{day}</Text>
+                  </View>
+                )}
 
                 <View style={styles.cardMain}>
                   <View style={styles.titleRow}>
@@ -732,6 +742,20 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: COLORS.line,
   },
   cardBody: { flexDirection: 'row', alignItems: 'center' },
+
+  thumbWrap: {
+    width: 64, height: 64, borderRadius: 14,
+    overflow: 'hidden', marginRight: 13,
+    backgroundColor: COLORS.inkRaised,
+  },
+  thumb: { width: '100%', height: '100%' },
+  thumbDate: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: 'rgba(7,9,7,0.82)',
+    alignItems: 'center', paddingVertical: 3,
+  },
+  thumbDateDow: { color: COLORS.primary, fontSize: 7.5, fontWeight: '800', letterSpacing: 0.8 },
+  thumbDateNum: { color: COLORS.snow, fontSize: 13, fontWeight: '800', marginTop: -2 },
 
   dateBadge: {
     width: 44,
