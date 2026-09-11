@@ -1,171 +1,209 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, FlatList } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
+  Keyboard, TouchableWithoutFeedback, ScrollView,
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
-import { formatGameTime, formatSport, sportEmoji } from '../utils/format';
 import { COLORS } from '../theme/colors';
 
-export default function ParkGamesSheet({ park, onClose, onSelectGame }) {
-  const [games, setGames] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function AuthScreen() {
+  const [isSignUp, setIsSignUp] = useState(true);
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    async function fetchGames() {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('games')
-        .select('*, bookings(count)')
-        .eq('park_id', park.park_id)
-        .in('status', ['open', 'confirmed'])
-        .order('start_time', { ascending: true });
+  async function handleAuth() {
+    Keyboard.dismiss();
 
-      if (!error) setGames(data || []);
+    if (!email.trim() || !password) {
+      Alert.alert('Missing info', 'Enter your email and password.');
+      return;
+    }
+    if (isSignUp && !fullName.trim()) {
+      Alert.alert('Missing info', 'What should people call you?');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: { data: { full_name: fullName.trim() } },
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (error) throw error;
+      }
+    } catch (error) {
+      Alert.alert('Something went wrong', error.message);
+    } finally {
       setLoading(false);
     }
-    if (park) fetchGames();
-  }, [park]);
-
-  const getPlayerCount = (game) => {
-    if (game.bookings && game.bookings.length > 0) return game.bookings[0].count;
-    return 0;
-  };
-
-  if (!park) return null;
+  }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.handle} />
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.parkName}>{park.name}</Text>
-          <Text style={styles.subtitle}>
-            {games.length} upcoming {games.length === 1 ? 'game' : 'games'}
-          </Text>
-        </View>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Ionicons name="close" size={22} color={COLORS.snow} />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.root}>
+      <StatusBar style="light" />
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-        </View>
-      ) : games.length === 0 ? (
-        <View style={styles.center}>
-          <View style={styles.emptyMark} />
-          <Text style={styles.emptyTitle}>No games yet</Text>
-          <Text style={styles.emptySubtitle}>Be the first to start a run here</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={games}
-          keyExtractor={(item) => item.game_id}
-          contentContainerStyle={{ padding: 20 }}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => {
-            const count = getPlayerCount(item);
-            const fillPercent = Math.min((count / item.max_players) * 100, 100);
-            return (
-              <TouchableOpacity
-                style={styles.gameCard}
-                onPress={() => onSelectGame(item)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.gameTop}>
-                  <Text style={styles.sportBadge}>
-                    {sportEmoji(item.sport)} {formatSport(item.sport)}
-                  </Text>
-                  <Text style={styles.price}>
-                    ${Number(item.base_price_per_player).toFixed(0)}
-                  </Text>
-                </View>
+          bounces={false}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View>
+              <View style={styles.hero}>
+                <View style={styles.mark} />
+                <Text style={styles.brand}>GRASSROOTS</Text>
+                <Text style={styles.tagline}>PLAY · CONNECT · BUILD COMMUNITY</Text>
+              </View>
 
-                <Text style={styles.gameTitle}>{item.title}</Text>
-
-                <View style={styles.metaItem}>
-                  <Ionicons name="time-outline" size={15} color={COLORS.neutral500} />
-                  <Text style={styles.metaText}>{formatGameTime(item.start_time)}</Text>
-                </View>
-
-                <View style={styles.fillBarContainer}>
-                  <View style={[styles.fillBar, { width: `${fillPercent}%` }]} />
-                </View>
-
-                <Text style={styles.fillText}>
-                  {count}/{item.max_players} players
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>
+                  {isSignUp ? 'Create your account' : 'Welcome back'}
                 </Text>
-              </TouchableOpacity>
-            );
-          }}
-        />
-      )}
+                <Text style={styles.cardSub}>
+                  {isSignUp
+                    ? 'Find pickup games near you'
+                    : 'Pick up where you left off'}
+                </Text>
+
+                {isSignUp && (
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="person-outline" size={19} color={COLORS.mute} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Full name"
+                      placeholderTextColor={COLORS.mute}
+                      value={fullName}
+                      onChangeText={setFullName}
+                      returnKeyType="next"
+                    />
+                  </View>
+                )}
+
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="mail-outline" size={19} color={COLORS.mute} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Email"
+                    placeholderTextColor={COLORS.mute}
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    returnKeyType="next"
+                  />
+                </View>
+
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="lock-closed-outline" size={19} color={COLORS.mute} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Password"
+                    placeholderTextColor={COLORS.mute}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    returnKeyType="done"
+                    onSubmitEditing={handleAuth}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.button, loading && styles.buttonDisabled]}
+                  onPress={handleAuth}
+                  disabled={loading}
+                  activeOpacity={0.85}
+                >
+                  {loading ? (
+                    <ActivityIndicator color={COLORS.ink} />
+                  ) : (
+                    <Text style={styles.buttonText}>
+                      {isSignUp ? 'Get started' : 'Log in'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.toggle}
+                  onPress={() => setIsSignUp(!isSignUp)}
+                >
+                  <Text style={styles.toggleText}>
+                    {isSignUp ? 'Already have an account? ' : 'New here? '}
+                    <Text style={styles.toggleLink}>
+                      {isSignUp ? 'Log in' : 'Sign up'}
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.inkRaised,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderTopWidth: 1,
-    borderColor: COLORS.line,
-    marginTop: 120,
+  root: { flex: 1, backgroundColor: COLORS.ink },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 },
+
+  hero: { alignItems: 'center', marginBottom: 40 },
+  mark: {
+    width: 18, height: 18, backgroundColor: COLORS.primary,
+    borderRadius: 4, transform: [{ rotate: '45deg' }], marginBottom: 22,
   },
-  handle: {
-    width: 40, height: 4, backgroundColor: COLORS.neutral300,
-    borderRadius: 3, alignSelf: 'center', marginTop: 12,
+  brand: {
+    fontSize: 28, fontWeight: '900', color: COLORS.snow, letterSpacing: 3.5,
   },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: 20, borderBottomWidth: 1, borderBottomColor: COLORS.line,
+  tagline: {
+    fontSize: 9.5, fontWeight: '800', color: COLORS.primary,
+    letterSpacing: 2, marginTop: 10,
   },
-  closeButton: {
-    width: 36, height: 36, borderRadius: 12,
+
+  card: {
     backgroundColor: COLORS.cardFill,
+    borderRadius: 24,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+  },
+  cardTitle: { fontSize: 22, fontWeight: '800', color: COLORS.snow, letterSpacing: -0.5 },
+  cardSub: { fontSize: 13.5, color: COLORS.mute, marginTop: 4, marginBottom: 22 },
+
+  inputWrapper: {
+    flexDirection: 'row', alignItems: 'center', gap: 11,
+    backgroundColor: COLORS.inkRaised,
+    borderRadius: 14, paddingHorizontal: 15, height: 52, marginBottom: 12,
     borderWidth: 1, borderColor: COLORS.line,
-    alignItems: 'center', justifyContent: 'center',
   },
-  parkName: {
-    fontSize: 22, fontWeight: '800',
-    color: COLORS.snow, letterSpacing: -0.7,
-  },
-  subtitle: { fontSize: 13.5, color: COLORS.mute, marginTop: 3 },
+  input: { flex: 1, fontSize: 15.5, color: COLORS.snow, height: '100%' },
 
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
-  emptyMark: {
-    width: 14, height: 14, backgroundColor: COLORS.primary,
-    borderRadius: 3, transform: [{ rotate: '45deg' }], marginBottom: 18,
+  button: {
+    backgroundColor: COLORS.primary, height: 54, borderRadius: 16,
+    justifyContent: 'center', alignItems: 'center', marginTop: 10,
   },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: COLORS.snow },
-  emptySubtitle: { fontSize: 14, color: COLORS.mute, marginTop: 6 },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: { color: COLORS.ink, fontSize: 16, fontWeight: '800' },
 
-  gameCard: {
-    backgroundColor: COLORS.cardFill, borderRadius: 18, padding: 18,
-    marginBottom: 12, borderWidth: 1, borderColor: COLORS.line,
-  },
-  gameTop: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 10,
-  },
-  sportBadge: {
-    fontSize: 12.5, fontWeight: '800', color: COLORS.primary,
-    backgroundColor: COLORS.limeDim, paddingHorizontal: 10,
-    paddingVertical: 5, borderRadius: 12, overflow: 'hidden',
-  },
-  price: { fontSize: 18, fontWeight: '800', color: COLORS.snow },
-  gameTitle: {
-    fontSize: 17, fontWeight: '700', color: COLORS.snow,
-    marginBottom: 8, letterSpacing: -0.3,
-  },
-  metaItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  metaText: { fontSize: 14, color: COLORS.neutral500, marginLeft: 6 },
-  fillBarContainer: {
-    height: 5, backgroundColor: COLORS.neutral200,
-    borderRadius: 3, overflow: 'hidden', marginBottom: 7,
-  },
-  fillBar: { height: '100%', backgroundColor: COLORS.primary, borderRadius: 3 },
-  fillText: { fontSize: 12.5, color: COLORS.mute, fontWeight: '600' },
+  toggle: { alignItems: 'center', marginTop: 20, paddingVertical: 6 },
+  toggleText: { color: COLORS.mute, fontSize: 14 },
+  toggleLink: { color: COLORS.primary, fontWeight: '700' },
 });

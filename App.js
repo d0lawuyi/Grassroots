@@ -31,7 +31,7 @@ import MySeriesScreen from './src/screens/MySeriesScreen';
 import Onboarding from './src/screens/Onboarding';
 import { COLORS } from './src/theme/colors';
 
-const ONBOARDING_KEY = 'grassroots:onboarding_complete_v7';
+const ONBOARDING_KEY = 'grassroots:onboarding_complete_v9';
 
 const DEFAULT_LOCATION = {
   latitude: 39.7684,
