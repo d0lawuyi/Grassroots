@@ -7,7 +7,6 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
-import { DARK_MAP } from '../theme/mapStyle';
 
 const CHECKS = [
   { key: 'ownership', label: 'Ownership', hint: 'Does the proof name match the owner or their organization?' },
@@ -299,10 +298,9 @@ function ReviewDetail({ submission, onBack, onDecided }) {
           <View style={s.mapWrap}>
             <MapView
               style={StyleSheet.absoluteFill}
-              customMapStyle={DARK_MAP}
-              initialRegion={{ latitude: item.latitude, longitude: item.longitude, latitudeDelta: 0.008, longitudeDelta: 0.008 }}
+              mapType="hybrid" // satellite + street names: check the pin is really on a field
+              initialRegion={{ latitude: item.latitude, longitude: item.longitude, latitudeDelta: 0.004, longitudeDelta: 0.004 }}
               scrollEnabled={false}
-              zoomEnabled={false}
             >
               <Marker coordinate={{ latitude: item.latitude, longitude: item.longitude }} />
             </MapView>

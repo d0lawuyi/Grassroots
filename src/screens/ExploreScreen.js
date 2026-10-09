@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import MapView, { Marker } from 'react-native-maps';
+import { SatellitePreview, VenueSatelliteMap, MapTypeToggle } from '../components/SatelliteView';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
 import { FONTS } from '../theme/fonts';
@@ -60,6 +61,10 @@ function PhotoOrPlaceholder({ venue, height, radius }) {
   const photo = photosOf(venue)[0];
   if (photo) {
     return <Image source={{ uri: photo }} style={{ width: '100%', height, borderRadius: radius }} accessibilityIgnoresInvertColors />;
+  }
+  // No photos yet: show the field from above instead, when we know where it is.
+  if (venue?.latitude != null && venue?.longitude != null) {
+    return <SatellitePreview venue={venue} height={height} radius={radius} />;
   }
   return (
     <View style={[s.placeholder, { height, borderRadius: radius }]}>
@@ -159,6 +164,14 @@ function VenueDetail({ venue, onClose, onCreateGame, onViewGames }) {
             <Fact icon="document-text-outline" label="Field rules" value={venue?.rules} />
           </View>
 
+          {venue?.latitude != null && venue?.longitude != null ? (
+            <>
+              <Text style={s.sectionLabel}>From above</Text>
+              <Text style={s.sectionHint}>Satellite imagery, so it may be a little out of date. Pinch to zoom.</Text>
+              <VenueSatelliteMap venue={venue} />
+            </>
+          ) : null}
+
           <TouchableOpacity style={s.linkRow} onPress={onViewGames}>
             <Ionicons name="calendar-outline" size={18} color={COLORS.primary} />
             <Text style={s.linkRowText}>See games already planned here</Text>
@@ -193,6 +206,7 @@ function VenueDetail({ venue, onClose, onCreateGame, onViewGames }) {
 export default function ExploreScreen({ userLocation, onSelectGame, onCreateGame, onSelectPark, userId }) {
   const [tab, setTab] = useState('venues');
   const [view, setView] = useState('list');
+  const [mapSatellite, setMapSatellite] = useState(false); // Explore map: regular or satellite
   const [venues, setVenues] = useState([]);
   const [query, setQuery] = useState('');
   const [sport, setSport] = useState('all');
@@ -369,6 +383,9 @@ export default function ExploreScreen({ userLocation, onSelectGame, onCreateGame
           data={loading || loadError ? [] : result}
           keyExtractor={(v) => String(v.park_id)}
           contentContainerStyle={s.list}
+          // Cards without photos show a live satellite map; keep only a few mounted at once
+          initialNumToRender={4}
+          windowSize={5}
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
             <View>
@@ -409,7 +426,12 @@ export default function ExploreScreen({ userLocation, onSelectGame, onCreateGame
           {header}
           {filters}
           <View style={s.mapWrap}>
-            <MapView style={StyleSheet.absoluteFill} customMapStyle={MAP_STYLE} initialRegion={region}>
+            <MapView
+              style={StyleSheet.absoluteFill}
+              mapType={mapSatellite ? 'hybrid' : 'standard'}
+              customMapStyle={mapSatellite ? undefined : MAP_STYLE}
+              initialRegion={region}
+            >
               {markers.map((v) => (
                 <Marker
                   key={String(v.park_id)}
@@ -421,6 +443,7 @@ export default function ExploreScreen({ userLocation, onSelectGame, onCreateGame
                 />
               ))}
             </MapView>
+            <MapTypeToggle satellite={mapSatellite} onChange={setMapSatellite} style={{ top: 12, right: 12 }} />
           </View>
         </View>
       )}
@@ -536,6 +559,8 @@ const s = StyleSheet.create({
     backgroundColor: COLORS.clayLight,
   },
   noticeText: { flex: 1, color: COLORS.snow, fontSize: 14, lineHeight: 20 },
+  sectionLabel: { marginTop: 26, color: COLORS.snow, fontSize: 18, fontFamily: FONTS.displaySemi },
+  sectionHint: { marginTop: 3, color: COLORS.mute, fontSize: 13 },
   factCard: { marginTop: 14, borderRadius: 20, backgroundColor: COLORS.cardFill, paddingHorizontal: 16, borderWidth: 1, borderColor: COLORS.line },
   fact: { flexDirection: 'row', gap: 12, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: COLORS.line },
   factLabel: { color: COLORS.mute, fontSize: 12.5 },
