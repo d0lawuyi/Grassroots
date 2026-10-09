@@ -23,3 +23,7 @@ __pycache__/
 *.pyc
 .venv/
 services/python/out/
+
+# C# build output (services/calendar-feed)
+bin/
+obj/
