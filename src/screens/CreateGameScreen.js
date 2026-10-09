@@ -26,12 +26,12 @@ function roundToNextHour(date) {
   return d;
 }
 
-export default function CreateGameScreen({ userId, onClose }) {
+export default function CreateGameScreen({ userId, onClose, initialParkId = null }) {
   const [parks, setParks] = useState([]);
   const [title, setTitle] = useState('');
   const [sport, setSport] = useState('soccer');
   const [skillLevel, setSkillLevel] = useState('Intermediate');
-  const [parkId, setParkId] = useState('');
+  const [parkId, setParkId] = useState(initialParkId || '');
   const [maxPlayers, setMaxPlayers] = useState('10');
   const [minPlayers, setMinPlayers] = useState('8');
   const [startTime, setStartTime] = useState(roundToNextHour(new Date()));
@@ -47,7 +47,13 @@ export default function CreateGameScreen({ userId, onClose }) {
         .from('parks')
         .select('park_id, name, sports, hourly_rate')
         .eq('status', 'active');
-      if (data && data.length > 0) setParks(data);
+      if (data && data.length > 0) {
+        setParks(data);
+        // Opened from a venue: switch to a sport that venue offers so it stays selected.
+        const preselected = initialParkId ? data.find((p) => p.park_id === initialParkId) : null;
+        const venueSports = preselected?.sports || [];
+        if (venueSports.length > 0 && !venueSports.includes(sport)) setSport(venueSports[0]);
+      }
     }
     fetchParks();
   }, []);
@@ -55,11 +61,13 @@ export default function CreateGameScreen({ userId, onClose }) {
   const availableParks = parks.filter((p) => (p.sports || []).includes(sport));
 
   useEffect(() => {
+    if (parks.length === 0) return; // venues not loaded yet; keep the preselected one
     if (parkId && !availableParks.some((p) => p.park_id === parkId)) {
       setParkId('');
     }
   }, [sport]);
 
+  // Preselected venue comes from Explore. Venue rates remain read-only in the UI.
   const selectedPark = parks.find((p) => p.park_id === parkId) || null;
   const rate = Number(selectedPark?.hourly_rate) || 0;
   const isFreeField = !!selectedPark && rate <= 0;

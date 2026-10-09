@@ -1,4 +1,19 @@
+# dependencies
+node_modules/
+
+# Expo
 .expo/
-node_modules
-node_modules
+dist/
+web-build/
+
+# secrets: keep real keys out of GitHub
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
 metro-log.txt
+
+# local reference copies, not part of the app
+Projects/

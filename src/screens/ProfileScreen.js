@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function ProfileScreen({ userId }) {
+export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) {
   const [profile, setProfile] = useState(null);
   const [badges, setBadges] = useState([]);
   const [allBadges, setAllBadges] = useState([]);
@@ -19,6 +19,7 @@ export default function ProfileScreen({ userId }) {
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const barGrow = useRef(new Animated.Value(0)).current;
 
@@ -37,6 +38,10 @@ export default function ProfileScreen({ userId }) {
     ]);
 
     setProfile(userRes.data);
+
+    // Admin access is decided by the database, never by the app.
+    const { data: admin } = await supabase.rpc('is_admin');
+    setIsAdmin(admin === true);
     setForm({
       full_name: userRes.data?.full_name || '',
       home_city: userRes.data?.home_city || '',
@@ -436,6 +441,29 @@ export default function ProfileScreen({ userId }) {
           </View>
         </View>
 
+        {/* VENUES */}
+        <View style={styles.venueSection}>
+          <Text style={styles.venueSectionTitle}>Venues</Text>
+          <TouchableOpacity style={styles.venueRow} onPress={onOpenListVenue} activeOpacity={0.85}>
+            <Ionicons name="business-outline" size={22} color={COLORS.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.venueRowTitle}>List your venue</Text>
+              <Text style={styles.venueRowSub}>Own or manage a field? Get paid when players book it.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.mute} />
+          </TouchableOpacity>
+          {isAdmin && (
+            <TouchableOpacity style={styles.venueRow} onPress={onOpenAdmin} activeOpacity={0.85}>
+              <Ionicons name="shield-checkmark-outline" size={22} color={COLORS.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.venueRowTitle}>Review venues</Text>
+                <Text style={styles.venueRowSub}>Approve listings waiting for verification.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.mute} />
+            </TouchableOpacity>
+          )}
+        </View>
+
         {__DEV__ && (
           <TouchableOpacity
             style={styles.devReset}
@@ -584,6 +612,15 @@ const styles = StyleSheet.create({
   },
   signOutText: { color: COLORS.danger, fontWeight: '700', fontSize: 15 },
 
+  venueSection: { marginTop: 26 },
+  venueSectionTitle: { color: COLORS.snow, fontSize: 18, fontWeight: '800', marginBottom: 10 },
+  venueRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 15, marginBottom: 10,
+    borderRadius: 16, borderWidth: 1, borderColor: COLORS.line, backgroundColor: COLORS.cardFill,
+  },
+  venueRowTitle: { color: COLORS.snow, fontSize: 15, fontWeight: '700' },
+  venueRowSub: { color: COLORS.mute, fontSize: 12, marginTop: 2, lineHeight: 17 },
+
   devReset: { alignItems: 'center', marginTop: 10, paddingVertical: 10 },
   devResetText: { color: COLORS.faint, fontSize: 12, fontWeight: '600' },
-});
+});
