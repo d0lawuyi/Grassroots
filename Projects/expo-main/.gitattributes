@@ -1,2 +1,0 @@
-* text=auto eol=lf
-*.pbxproj merge=union -text diff linguist-generated

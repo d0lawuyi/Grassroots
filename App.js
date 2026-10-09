@@ -29,6 +29,8 @@ import GameReviewScreen from './src/screens/GameReviewScreen';
 import SplashLoadingScreen from './src/screens/SplashLoadingScreen';
 import MySeriesScreen from './src/screens/MySeriesScreen';
 import Onboarding from './src/screens/Onboarding';
+import ListVenueScreen from './src/screens/ListVenueScreen';
+import AdminReviewScreen from './src/screens/AdminReviewScreen';
 import { COLORS } from './src/theme/colors';
 
 const ONBOARDING_KEY = 'grassroots:onboarding_complete_v9';
@@ -47,6 +49,7 @@ export default function App() {
   const [userLocation, setUserLocation] = useState(DEFAULT_LOCATION);
 
   const [showCreateGame, setShowCreateGame] = useState(false);
+  const [createAtParkId, setCreateAtParkId] = useState(null);
   const [selectedPark, setSelectedPark] = useState(null);
   const [selectedGame, setSelectedGame] = useState(null);
   const [chatGame, setChatGame] = useState(null);
@@ -54,7 +57,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('explore');
   const [splashDone, setSplashDone] = useState(false);
   const [tabKey, setTabKey] = useState(0);
-    const [showSeries, setShowSeries] = useState(false);
+  const [showSeries, setShowSeries] = useState(false);
+  const [showListVenue, setShowListVenue] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   // null = still reading storage, true = seen it, false = show it
   const [onboardingSeen, setOnboardingSeen] = useState(null);
@@ -214,7 +219,10 @@ export default function App() {
               userLocation={userLocation}
               onSelectPark={(park) => setSelectedPark(park)}
               onSelectGame={openGame}
-              onCreateGame={() => setShowCreateGame(true)}
+              onCreateGame={(park) => {
+                 setCreateAtParkId(park?.park_id || null);
+                 setShowCreateGame(true);
+               }}
             />
           )}
 
@@ -240,7 +248,12 @@ export default function App() {
           
           {/* PROFILE TAB */}
           {activeTab === 'profile' && (
-            <ProfileScreen key={tabKey} userId={session.user.id} />
+            <ProfileScreen
+              key={tabKey}
+              userId={session.user.id}
+              onOpenListVenue={() => setShowListVenue(true)}
+              onOpenAdmin={() => setShowAdmin(true)}
+            />
           )}
         </View>
 
@@ -296,12 +309,18 @@ export default function App() {
           visible={showCreateGame}
           animationType="slide"
           transparent
-          onRequestClose={() => setShowCreateGame(false)}
+          onRequestClose={() => {
+            setShowCreateGame(false);
+            setCreateAtParkId(null);
+          }}
         >
           <CreateGameScreen
+            key={createAtParkId || 'new'}
             userId={session.user.id}
+            initialParkId={createAtParkId}
             onClose={() => {
               setShowCreateGame(false);
+              setCreateAtParkId(null);
               setTabKey((k) => k + 1);
             }}
           />
@@ -366,6 +385,33 @@ export default function App() {
             }}
           />
                 </Modal>
+
+        {/* LIST YOUR VENUE (owners) */}
+        <Modal
+          visible={showListVenue}
+          animationType="slide"
+          onRequestClose={() => setShowListVenue(false)}
+        >
+          <ListVenueScreen
+            userId={session.user.id}
+            userLocation={userLocation}
+            onClose={() => setShowListVenue(false)}
+          />
+        </Modal>
+
+        {/* VENUE REVIEW (admins) */}
+        <Modal
+          visible={showAdmin}
+          animationType="slide"
+          onRequestClose={() => setShowAdmin(false)}
+        >
+          <AdminReviewScreen
+            onClose={() => {
+              setShowAdmin(false);
+              setTabKey((k) => k + 1);
+            }}
+          />
+        </Modal>
 
         {/* RECURRING GAMES */}
         <Modal
