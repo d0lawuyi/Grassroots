@@ -56,24 +56,19 @@ jobs:
     name: Database migrations and security rules
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # A throwaway Postgres that only exists for this job
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: postgres
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+    # Uses the PostgreSQL that comes installed on GitHub's Ubuntu machines (turned off by
+    # default) instead of a Docker image, so a Docker Hub outage can't fail the check.
     env:
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
     steps:
       - uses: actions/checkout@v5
+      - name: Start PostgreSQL
+        run: |
+          sudo systemctl start postgresql.service
+          sudo -u postgres psql -c "alter user postgres password 'postgres'"
+          psql --version
       - name: Run migrations twice, then the tests
         run: bash supabase/tests/run.sh
 
