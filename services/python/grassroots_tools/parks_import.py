@@ -24,9 +24,15 @@ from typing import Any
 
 from .config import OUT_DIR
 from .geo import Geocoder, distance_m, name_similarity, nearest, normalize_name
-from .web import request_json
+from .web import HttpError, request_json
 
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+# The main Overpass server is free and often busy. If it answers "too busy" (429/504),
+# the same query is sent to the next mirror. All three serve the same OpenStreetMap data.
+OVERPASS_URLS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+]
 
 # OpenStreetMap sport tag -> the sport ids the app uses (see SPORTS in ExploreScreen.js)
 SPORT_MAP = {
@@ -144,6 +150,23 @@ def is_duplicate(venue: Venue, existing: list[dict[str, Any]]) -> tuple[bool, st
     return False, ""
 
 
+def fetch_overpass(query: str) -> dict[str, Any]:
+    """Send the query to each Overpass server in turn until one answers."""
+    last_error: Exception | None = None
+    for url in OVERPASS_URLS:
+        try:
+            return request_json("POST", url, form={"data": query}, timeout=120, retries=1)
+        except (HttpError, OSError) as err:  # OSError covers timeouts and dropped connections
+            status = getattr(err, "status", None)
+            if status is not None and status not in (429, 500, 502, 503, 504):
+                raise  # a real error in our request, not a busy server: don't hide it
+            print(f"  {url.split('/')[2]} is busy, trying the next server...")
+            last_error = err
+    raise SystemExit(
+        "All OpenStreetMap servers are busy right now. Nothing was added. Wait a few minutes and run the same command again."
+    ) from last_error
+
+
 def run(db, *, city: str, state: str, commit: bool, limit: int | None = None) -> dict[str, Any]:
     geocoder = Geocoder()
     place = geocoder.lookup(f"{city}, {state}, USA")
@@ -151,7 +174,7 @@ def run(db, *, city: str, state: str, commit: bool, limit: int | None = None) ->
         raise SystemExit(f"Couldn't find {city}, {state} on the map. Check the spelling.")
     print(f"Searching {place['label']}")
 
-    answer = request_json("POST", OVERPASS_URL, form={"data": overpass_query(place["bbox"])}, timeout=120)
+    answer = fetch_overpass(overpass_query(place["bbox"]))
     pitches, parks = parse_overpass(answer.get("elements", []))
     venues = group_into_venues(pitches, parks)
     print(f"Found {len(pitches)} sports pitches in {len(parks)} named parks -> {len(venues)} possible venues")
