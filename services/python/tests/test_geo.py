@@ -1,6 +1,7 @@
 import unittest
 
-from grassroots_tools.geo import distance_m, name_similarity, nearest, normalize_name
+from grassroots_tools.geo import distance_m, name_similarity, nearest, normalize_name, street_address
+from grassroots_tools.web import HttpError
 
 
 class DistanceTest(unittest.TestCase):
@@ -27,6 +28,23 @@ class NameTest(unittest.TestCase):
     def test_similar_names_score_high(self):
         self.assertGreater(name_similarity("Central Green Field", "Central Green Park"), 0.95)
         self.assertLess(name_similarity("Central Green Field", "Speedway Soccer"), 0.5)
+
+
+class AddressTest(unittest.TestCase):
+    def test_number_and_road(self):
+        self.assertEqual(street_address({"house_number": "1200", "road": "W 38th St"}), "1200 W 38th St")
+
+    def test_road_only_and_nothing(self):
+        self.assertEqual(street_address({"road": "Kessler Blvd"}), "Kessler Blvd")
+        self.assertIsNone(street_address({"city": "Indianapolis"}))
+
+
+class ErrorTextTest(unittest.TestCase):
+    def test_supabase_message_comes_first(self):
+        body = '{"code":"23502","details":"Failing row contains (a, very, long, row)","hint":null,"message":"null value in column \\"address\\" violates not-null constraint"}'
+        text = str(HttpError(400, body, "https://x.supabase.co/rest/v1/parks?select=*"))
+        self.assertTrue(text.startswith('HTTP 400 from https://x.supabase.co/rest/v1/parks: null value in column "address"'))
+        self.assertIn("(code 23502)", text)
 
 
 if __name__ == "__main__":

@@ -215,6 +215,12 @@ def run(db, *, city: str, state: str, commit: bool, limit: int | None = None) ->
 
     inserted = 0
     if commit and rows:
+        # Venues need a street address. Look up the nearest one for each pin
+        # (one per second, so 100 venues take about two minutes).
+        print(f"Looking up street addresses for {len(rows)} venues...")
+        for row in rows:
+            street = geocoder.reverse(row["latitude"], row["longitude"])
+            row["address"] = street or row["name"]
         inserted = len(db.insert("parks", rows))
         print(f"Added {inserted} venues to Supabase (unverified).")
     elif rows:
