@@ -49,7 +49,7 @@ then `http://localhost:5080/feeds/YOUR-TOKEN.ics`. That downloads the calendar f
 Double-click it to see the games in your calendar app. Press **Ctrl+C** in the window to stop.
 
 To subscribe from a phone, the service has to be online rather than on your computer.
-That's the hosting step that comes next.
+`infra/calendar-feed/README.md` puts it on AWS Lambda, deployed by GitHub Actions.
 
 **Run the tests:**
 

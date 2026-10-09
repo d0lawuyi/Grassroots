@@ -9,6 +9,11 @@
     <RootNamespace>CalendarFeed</RootNamespace>
   </PropertyGroup>
 
+  <!-- Runs the same app inside AWS Lambda. Outside Lambda (on your PC) it does nothing. -->
+  <ItemGroup>
+    <PackageReference Include="Amazon.Lambda.AspNetCoreServer.Hosting" Version="1.*" />
+  </ItemGroup>
+
   <!-- Lets the test project see internal classes -->
   <ItemGroup>
     <InternalsVisibleTo Include="CalendarFeed.Tests" />
