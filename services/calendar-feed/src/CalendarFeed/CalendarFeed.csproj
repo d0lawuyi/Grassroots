@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>CalendarFeed</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Lets the test project see internal classes -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="CalendarFeed.Tests" />
+  </ItemGroup>
+
+</Project>
