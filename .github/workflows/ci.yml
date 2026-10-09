@@ -1,0 +1,78 @@
+# CI: checks that run on every pull request and every push to main.
+# Each job shows as a check on the pull request page: green to merge, red to fix.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same branch cancels the run that's still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: App bundles
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install packages
+        run: npm ci
+      # Builds the JavaScript bundle the phone downloads. A typo, a missing import or
+      # a file that doesn't exist fails here instead of on your phone.
+      - name: Build iOS bundle
+        run: npx expo export --platform ios --output-dir dist-ios
+      - name: Build Android bundle
+        run: npx expo export --platform android --output-dir dist-android
+
+  python:
+    name: Python tools (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
+    defaults:
+      run:
+        working-directory: services/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run tests
+        run: python -m unittest discover -s tests -t . -v
+
+  database:
+    name: Database migrations and security rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # A throwaway Postgres that only exists for this job
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run migrations twice, then the tests
+        run: bash supabase/tests/run.sh
