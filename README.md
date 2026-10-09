@@ -50,6 +50,18 @@ automatic pre-check for venue submissions (shown on the admin review screen), an
 newsletter builder. Setup and a walkthrough are in `services/python/README.md`. They need
 `supabase/migrations/003_python_tools.sql` run once in the SQL Editor.
 
+## C# calendar feed (services/calendar-feed)
+
+An ASP.NET Core service that gives each venue owner a private calendar link listing the games
+booked at their venues. Needs `supabase/migrations/004_calendar_feeds.sql`. Setup in
+`services/calendar-feed/README.md`.
+
+## CI
+
+Every pull request runs `.github/workflows/ci.yml`: app bundles for iOS and Android, the Python
+tests on 3.11 to 3.14, all migrations plus the database security tests in `supabase/tests/`,
+and the C# build and tests.
+
 ## Earlier: marketplace browsing UI
 
 ## Files
