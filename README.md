@@ -43,6 +43,13 @@ Grassroots" badge. Older parks keep working and show as not yet verified.
 
 ---
 
+## Python tools (services/python)
+
+Command-line tools that run next to the app: an OpenStreetMap import of public fields, an
+automatic pre-check for venue submissions (shown on the admin review screen), and The Sideline
+newsletter builder. Setup and a walkthrough are in `services/python/README.md`. They need
+`supabase/migrations/003_python_tools.sql` run once in the SQL Editor.
+
 ## Earlier: marketplace browsing UI
 
 ## Files

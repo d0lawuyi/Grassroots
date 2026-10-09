@@ -17,3 +17,9 @@ metro-log.txt
 
 # local reference copies, not part of the app
 Projects/
+
+# Python tools (services/python)
+__pycache__/
+*.pyc
+.venv/
+services/python/out/

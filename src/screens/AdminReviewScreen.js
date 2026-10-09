@@ -158,6 +158,33 @@ export default function AdminReviewScreen({ onClose }) {
   );
 }
 
+// How each automatic finding is marked
+const AUTO_ICON = {
+  flag: { icon: 'alert-circle', color: COLORS.danger },
+  warn: { icon: 'help-circle', color: COLORS.warning },
+  ok: { icon: 'checkmark-circle-outline', color: COLORS.success },
+};
+
+function PrecheckSummary({ precheck }) {
+  if (!precheck) {
+    return <Text style={s.hint}>No automatic pre-check yet. Run the Python precheck tool to add one.</Text>;
+  }
+  const flags = precheck.findings.filter((f) => f.level === 'flag').length;
+  const warns = precheck.findings.filter((f) => f.level === 'warn').length;
+  const tone = flags > 0 ? COLORS.danger : warns > 0 ? COLORS.warning : COLORS.success;
+  return (
+    <View style={[s.autoSummary, { borderColor: tone }]}>
+      <Text style={[s.autoScore, { color: tone }]}>{precheck.score}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={s.autoTitle}>Automatic pre-check</Text>
+        <Text style={s.checkHint}>
+          {flags} {flags === 1 ? 'flag' : 'flags'}, {warns} {warns === 1 ? 'warning' : 'warnings'}. A guide only: you still decide each check.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function ReviewDetail({ submission, onBack, onDecided }) {
   const item = submission;
   const waiting = item.status === 'submitted';
@@ -172,6 +199,17 @@ function ReviewDetail({ submission, onBack, onDecided }) {
   const [proofUrl, setProofUrl] = useState(null);
   const [proofError, setProofError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Automatic findings from the Python pre-check (services/python), if it has run
+  const [precheck, setPrecheck] = useState(null);
+
+  useEffect(() => {
+    supabase
+      .from('venue_prechecks')
+      .select('score, findings, checked_at')
+      .eq('submission_id', item.submission_id)
+      .maybeSingle()
+      .then(({ data }) => setPrecheck(data || null));
+  }, []);
 
   useEffect(() => {
     async function loadProof() {
@@ -280,8 +318,10 @@ function ReviewDetail({ submission, onBack, onDecided }) {
 
         <Text style={s.section}>Checks</Text>
         <Text style={s.hint}>All four must pass to approve.</Text>
+        <PrecheckSummary precheck={precheck} />
         {CHECKS.map((c) => {
           const val = checks[c.key];
+          const auto = (precheck?.findings || []).filter((f) => f.check === c.key);
           return (
             <View key={c.key} style={[s.check, val.result === 'flag' && s.checkFlag]}>
               <View style={s.checkTop}>
@@ -290,6 +330,12 @@ function ReviewDetail({ submission, onBack, onDecided }) {
                   <Text style={s.checkHint}>{c.hint}</Text>
                 </View>
               </View>
+              {auto.map((f, i) => (
+                <View key={i} style={s.autoRow}>
+                  <Ionicons name={AUTO_ICON[f.level].icon} size={15} color={AUTO_ICON[f.level].color} style={{ marginTop: 2 }} />
+                  <Text style={[s.autoText, f.level === 'ok' && { color: COLORS.mute }]}>{f.message}</Text>
+                </View>
+              ))}
               <View style={s.checkBtns}>
                 <TouchableOpacity
                   style={[s.pill, val.result === 'pass' && s.pillPass]}
@@ -408,6 +454,14 @@ const s = StyleSheet.create({
   checkFlag: { borderColor: 'rgba(185,68,27,0.5)', backgroundColor: COLORS.coralLight },
   checkTop: { flexDirection: 'row' },
   checkLabel: { color: COLORS.snow, fontSize: 16, fontWeight: '700' },
+  autoRow: { flexDirection: 'row', gap: 7, marginTop: 9 },
+  autoText: { flex: 1, color: COLORS.snow, fontSize: 13.5, lineHeight: 19 },
+  autoSummary: {
+    flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 12, padding: 14,
+    borderRadius: 16, borderWidth: 1.5, backgroundColor: COLORS.cardFill,
+  },
+  autoScore: { fontSize: 30, fontWeight: '800', letterSpacing: -1 },
+  autoTitle: { color: COLORS.snow, fontSize: 15, fontWeight: '700' },
   checkHint: { color: COLORS.mute, fontSize: 13, marginTop: 2, lineHeight: 18 },
   checkBtns: { flexDirection: 'row', gap: 8, marginTop: 12 },
   pill: {

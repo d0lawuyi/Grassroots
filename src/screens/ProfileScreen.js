@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Image,
-  ActivityIndicator, TextInput, Alert, RefreshControl, Animated,
+  ActivityIndicator, TextInput, Alert, RefreshControl, Animated, Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -22,6 +22,16 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
   const [isAdmin, setIsAdmin] = useState(false);
 
   const barGrow = useRef(new Animated.Value(0)).current;
+
+  // Saves the newsletter opt-in. Flips the switch right away, and back if saving fails.
+  async function toggleSideline(on) {
+    setProfile((p) => ({ ...p, sideline_feature: on }));
+    const { error } = await supabase.from('users').update({ sideline_feature: on }).eq('user_id', userId);
+    if (error) {
+      setProfile((p) => ({ ...p, sideline_feature: !on }));
+      Alert.alert('Could not save', error.message);
+    }
+  }
 
   async function fetchProfile() {
     const [userRes, badgeRes, catalogRes, playedRes, orgRes, ratedRes] = await Promise.all([
@@ -438,6 +448,27 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
                 </View>
               );
             })}
+          </View>
+        </View>
+
+        {/* THE SIDELINE: opt in to being featured in the weekly newsletter */}
+        <View style={styles.venueSection}>
+          <Text style={styles.venueSectionTitle}>The Sideline</Text>
+          <View style={styles.venueRow}>
+            <Ionicons name="newspaper-outline" size={22} color={COLORS.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.venueRowTitle}>Feature me in The Sideline</Text>
+              <Text style={styles.venueRowSub}>
+                You could be player of the week. We only show your first name and last initial.
+              </Text>
+            </View>
+            <Switch
+              value={!!profile?.sideline_feature}
+              onValueChange={toggleSideline}
+              trackColor={{ false: COLORS.neutral200, true: COLORS.primary }}
+              thumbColor={COLORS.white}
+              accessibilityLabel="Feature me in The Sideline newsletter"
+            />
           </View>
         </View>
 
