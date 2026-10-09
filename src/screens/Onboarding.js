@@ -15,16 +15,16 @@ const { width } = Dimensions.get('window');
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
-const INK = '#070907';
-const LIME = '#D7FF3E';
-const SNOW = '#F4F6F2';
-const MUTE = 'rgba(244,246,242,0.45)';
-const LINE = 'rgba(244,246,242,0.10)';
+const INK = '#F4F0E6';
+const LIME = '#17442F';
+const SNOW = '#172019';
+const MUTE = 'rgba(23,32,25,0.45)';
+const LINE = 'rgba(23,32,25,0.10)';
 
-const FACE_1 = 'rgba(244,246,242,0.30)';
-const FACE_2 = 'rgba(244,246,242,0.22)';
-const FACE_3 = 'rgba(244,246,242,0.16)';
-const FACE_4 = 'rgba(244,246,242,0.11)';
+const FACE_1 = 'rgba(23,32,25,0.30)';
+const FACE_2 = 'rgba(23,32,25,0.22)';
+const FACE_3 = 'rgba(23,32,25,0.16)';
+const FACE_4 = 'rgba(23,32,25,0.11)';
 
 /* Counts a number up from 0 to target while the slide is active. */
 function useCountUp(target, active, duration = 900) {
@@ -577,7 +577,7 @@ const s = StyleSheet.create({
   },
 
   card: {
-    backgroundColor: 'rgba(244,246,242,0.045)',
+    backgroundColor: 'rgba(23,32,25,0.045)',
     borderRadius: 22,
     borderWidth: 1,
     borderColor: LINE,
@@ -588,14 +588,14 @@ const s = StyleSheet.create({
   mapBed: {
     height: 176,
     borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(23,68,47,0.08)',
     overflow: 'hidden',
   },
   gridH: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: LINE },
   gridV: { position: 'absolute', top: 0, bottom: 0, width: 1, backgroundColor: LINE },
   park: {
     position: 'absolute',
-    backgroundColor: 'rgba(215,255,62,0.07)',
+    backgroundColor: 'rgba(23,68,47,0.07)',
     borderRadius: 6,
   },
   pinDim: {
@@ -603,7 +603,7 @@ const s = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(244,246,242,0.28)',
+    backgroundColor: 'rgba(23,32,25,0.28)',
   },
   pinLive: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   pinHalo: {
@@ -651,7 +651,7 @@ const s = StyleSheet.create({
   livePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(215,255,62,0.12)',
+    backgroundColor: 'rgba(23,68,47,0.12)',
     paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 20,
@@ -674,7 +674,7 @@ const s = StyleSheet.create({
   faces: { flexDirection: 'row', alignItems: 'center', marginTop: 20 },
   face: { width: 27, height: 27, borderRadius: 14, borderWidth: 2, borderColor: INK },
   faceMore: {
-    backgroundColor: 'rgba(244,246,242,0.07)',
+    backgroundColor: 'rgba(23,32,25,0.07)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -771,7 +771,7 @@ const s = StyleSheet.create({
     height: 40,
     borderRadius: 11,
     borderWidth: 1,
-    borderColor: 'rgba(215,255,62,0.35)',
+    borderColor: 'rgba(23,68,47,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -782,7 +782,7 @@ const s = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: 'rgba(244,246,242,0.10)',
+    backgroundColor: 'rgba(23,32,25,0.10)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -792,7 +792,7 @@ const s = StyleSheet.create({
   trustScore: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(215,255,62,0.12)',
+    backgroundColor: 'rgba(23,68,47,0.12)',
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 20,
@@ -802,7 +802,7 @@ const s = StyleSheet.create({
   trustBarTrack: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(244,246,242,0.10)',
+    backgroundColor: 'rgba(23,32,25,0.10)',
     overflow: 'hidden',
   },
   trustBarFill: { height: '100%', borderRadius: 2, backgroundColor: LIME },
@@ -815,7 +815,7 @@ const s = StyleSheet.create({
   footer: { paddingHorizontal: 26, paddingBottom: 42, paddingTop: 14 },
   track: { flexDirection: 'row', marginBottom: 20, gap: 5 },
   trackTap: { flex: 1, paddingVertical: 6 },
-  trackSeg: { height: 2, backgroundColor: 'rgba(244,246,242,0.12)' },
+  trackSeg: { height: 2, backgroundColor: 'rgba(23,32,25,0.12)' },
   trackSegOn: { backgroundColor: LIME },
 
   cta: {
@@ -839,5 +839,5 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  fine: { color: 'rgba(244,246,242,0.28)', fontSize: 11.5, textAlign: 'center', marginTop: 15 },
+  fine: { color: 'rgba(23,32,25,0.28)', fontSize: 11.5, textAlign: 'center', marginTop: 15 },
 });

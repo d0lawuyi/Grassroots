@@ -53,7 +53,7 @@ export default function AuthScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}

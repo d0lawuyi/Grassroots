@@ -194,7 +194,7 @@ export default function CreateGameScreen({ userId, onClose, initialParkId = null
 
   return (
     <View style={styles.container}>
-      <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+      <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
       <View style={styles.glassTint} pointerEvents="none" />
 
       <View style={styles.header}>
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
 
   inputWrapper: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 14,
+    backgroundColor: COLORS.inkRaised, borderRadius: 14,
     paddingHorizontal: 16, height: 54, marginBottom: 24,
     borderWidth: 1, borderColor: COLORS.line,
   },
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
 
   dateButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 14, height: 54,
+    backgroundColor: COLORS.inkRaised, borderRadius: 14, height: 54,
     borderWidth: 1, borderColor: COLORS.line, marginBottom: 24,
   },
   dateButtonText: { fontSize: 15, fontWeight: '700', color: COLORS.snow },
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
   },
   doneButtonText: { color: COLORS.ink, fontWeight: '800' },
   pickerSheet: {
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: COLORS.inkRaised,
     borderRadius: 16,
     marginBottom: 16,
     paddingVertical: 4,

@@ -1,13 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator,
-  TouchableOpacity, RefreshControl,
+  TouchableOpacity, RefreshControl, Alert,
 } from 'react-native';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
+import Reanimated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { formatSport, sportEmoji } from '../utils/format';
 import { COLORS } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import { fetchHiddenGameIds, hideGame, REMOVE_TITLE, removeMessage } from '../lib/hiddenGames';
+
+/* Red "Remove" button revealed when a played chat is swiped left. */
+function RemoveAction({ drag, onPress }) {
+  const slide = useAnimatedStyle(() => ({
+    transform: [{ translateX: drag.value + 88 }],
+  }));
+
+  return (
+    <Reanimated.View style={slide}>
+      <TouchableOpacity style={styles.swipeAction} onPress={onPress} activeOpacity={0.85}>
+        <Ionicons name="trash-outline" size={22} color={COLORS.white} />
+        <Text style={styles.swipeActionText}>Remove</Text>
+      </TouchableOpacity>
+    </Reanimated.View>
+  );
+}
 
 function timeAgo(timestamp) {
   if (!timestamp) return '';
@@ -44,6 +63,8 @@ export default function MessagesScreen({ userId, onOpenChat }) {
   const [refreshing, setRefreshing] = useState(false);
 
   async function fetchThreads() {
+    const hidden = await fetchHiddenGameIds(userId);
+
     const { data: orgGames } = await supabase
       .from('games')
       .select('*, parks(name)')
@@ -58,7 +79,7 @@ export default function MessagesScreen({ userId, onOpenChat }) {
 
     const byId = {};
     [...(orgGames || []), ...joined].forEach((g) => {
-      if (g) byId[g.game_id] = g;
+      if (g && !hidden.has(g.game_id)) byId[g.game_id] = g;
     });
     const games = Object.values(byId);
 
@@ -107,6 +128,24 @@ export default function MessagesScreen({ userId, onOpenChat }) {
     if (userId) init();
   }, [userId]);
 
+  function confirmRemove(game) {
+    Alert.alert(REMOVE_TITLE, removeMessage(game.title), [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          const problem = await hideGame(userId, game.game_id);
+          if (problem) {
+            Alert.alert('Could not remove', problem);
+            return;
+          }
+          setThreads((list) => list.filter((t) => t.game_id !== game.game_id));
+        },
+      },
+    ]);
+  }
+
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchThreads();
@@ -150,11 +189,12 @@ export default function MessagesScreen({ userId, onOpenChat }) {
           const hasMessage = !!item.lastMessage;
           const when = kickoff(item.start_time);
 
-          return (
+          const row = (
             <TouchableOpacity
               style={[styles.thread, when?.past && styles.threadPast]}
               activeOpacity={0.85}
               onPress={() => onOpenChat(item)}
+              onLongPress={when?.past ? () => confirmRemove(item) : undefined}
             >
               <View style={[styles.avatar, when?.past && styles.avatarPast]}>
                 <Text style={styles.avatarEmoji}>{sportEmoji(item.sport)}</Text>
@@ -196,6 +236,22 @@ export default function MessagesScreen({ userId, onOpenChat }) {
               <Ionicons name="chevron-forward" size={18} color={COLORS.neutral400} />
             </TouchableOpacity>
           );
+
+          // Only played games can be removed: swipe left, or press and hold.
+          if (!when?.past) return row;
+
+          return (
+            <ReanimatedSwipeable
+              friction={2}
+              rightThreshold={40}
+              overshootRight={false}
+              renderRightActions={(progress, drag) => (
+                <RemoveAction drag={drag} onPress={() => confirmRemove(item)} />
+              )}
+            >
+              {row}
+            </ReanimatedSwipeable>
+          );
         }}
       />
     </View>
@@ -208,7 +264,7 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center', justifyContent: 'center',
     backgroundColor: COLORS.ink,
   },
-  listContent: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 40 },
+  listContent: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 120 },
 
   thread: {
     flexDirection: 'row', alignItems: 'center',
@@ -218,16 +274,16 @@ const styles = StyleSheet.create({
   },
   threadPast: {
     backgroundColor: 'rgba(0,0,0,0.25)',
-    borderColor: 'rgba(244,246,242,0.06)',
+    borderColor: 'rgba(23,32,25,0.06)',
   },
 
   avatar: {
     width: 46, height: 46, borderRadius: 15, backgroundColor: COLORS.limeDim,
     alignItems: 'center', justifyContent: 'center', marginRight: 12,
-    borderWidth: 1, borderColor: 'rgba(215,255,62,0.18)',
+    borderWidth: 1, borderColor: 'rgba(23,68,47,0.18)',
   },
   avatarPast: {
-    backgroundColor: 'rgba(244,246,242,0.05)',
+    backgroundColor: 'rgba(23,32,25,0.05)',
     borderColor: COLORS.line,
   },
   avatarEmoji: { fontSize: 21 },
@@ -264,4 +320,15 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 17, fontWeight: '700', color: COLORS.snow },
   emptyText: { fontSize: 14, color: COLORS.mute, marginTop: 6 },
+
+  swipeAction: {
+    backgroundColor: COLORS.danger,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    marginBottom: 9,
+    marginLeft: 8,
+    borderRadius: 16,
+  },
+  swipeActionText: { color: COLORS.white, fontWeight: '800', fontSize: 12, marginTop: 4 },
 });

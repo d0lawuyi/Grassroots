@@ -591,10 +591,10 @@ export default function ExploreScreen({ userId, userLocation, onSelectPark, onSe
 /* ---------- monochrome avatar stack, you in lime ---------- */
 
 const TONES = [
-  'rgba(244,246,242,0.30)',
-  'rgba(244,246,242,0.22)',
-  'rgba(244,246,242,0.16)',
-  'rgba(244,246,242,0.11)',
+  'rgba(23,32,25,0.30)',
+  'rgba(23,32,25,0.22)',
+  'rgba(23,32,25,0.16)',
+  'rgba(23,32,25,0.11)',
 ];
 
 function AvatarStack({ players, count, maxPlayers, max = 4 }) {
@@ -651,7 +651,7 @@ function AvatarStack({ players, count, maxPlayers, max = 4 }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.ink },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.ink },
-  listContent: { paddingHorizontal: 20, paddingBottom: 100 },
+  listContent: { paddingHorizontal: 20, paddingBottom: 120 },
 
   /* pager */
   pagerWrap: { marginTop: 16 },
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 10 },
   dot: {
     width: 5, height: 5, borderRadius: 3,
-    backgroundColor: 'rgba(244,246,242,0.2)',
+    backgroundColor: 'rgba(23,32,25,0.2)',
   },
   dotActive: { backgroundColor: COLORS.primary, width: 16 },
 
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
   mapOverlay: {
     position: 'absolute', bottom: 10, right: 10,
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(7,9,7,0.8)',
+    backgroundColor: 'rgba(255,253,248,0.8)',
     borderWidth: 1, borderColor: COLORS.line,
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12,
   },
@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderWidth: 2.5, borderColor: COLORS.ink,
   },
-  pinCoreDim: { backgroundColor: 'rgba(244,246,242,0.35)' },
+  pinCoreDim: { backgroundColor: 'rgba(23,32,25,0.35)' },
 
   mePin: { alignItems: 'center', justifyContent: 'center', width: 26, height: 26 },
   meCore: {
@@ -751,7 +751,7 @@ const styles = StyleSheet.create({
   thumb: { width: '100%', height: '100%' },
   thumbDate: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: 'rgba(7,9,7,0.82)',
+    backgroundColor: 'rgba(255,253,248,0.82)',
     alignItems: 'center', paddingVertical: 3,
   },
   thumbDateDow: { color: COLORS.primary, fontSize: 7.5, fontWeight: '800', letterSpacing: 0.8 },
@@ -788,10 +788,10 @@ const styles = StyleSheet.create({
   },
   weatherChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(244,246,242,0.07)',
+    backgroundColor: 'rgba(23,32,25,0.07)',
     paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8,
   },
-  weatherChipRough: { backgroundColor: 'rgba(253,186,116,0.14)' },
+  weatherChipRough: { backgroundColor: 'rgba(185,68,27,0.14)' },
   weatherText: { fontSize: 10.5, fontWeight: '600', color: COLORS.mute },
   weatherTextRough: { color: COLORS.warning },
 
@@ -809,7 +809,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, overflow: 'hidden',
   },
   spotsBadgeConfirmed: { color: COLORS.ink, backgroundColor: COLORS.primary },
-  spotsBadgeForming: { color: COLORS.warning, backgroundColor: 'rgba(253,186,116,0.14)' },
+  spotsBadgeForming: { color: COLORS.warning, backgroundColor: 'rgba(185,68,27,0.14)' },
   spotsBadgeFull: { color: COLORS.mute, backgroundColor: COLORS.neutral100 },
 
   /* avatars */
@@ -822,7 +822,7 @@ const styles = StyleSheet.create({
   avatarImage: { width: '100%', height: '100%' },
   avatarText: { fontSize: 9, fontWeight: '800', color: COLORS.snow },
   avatarTextYou: { color: COLORS.ink },
-  avatarExtra: { backgroundColor: 'rgba(244,246,242,0.07)' },
+  avatarExtra: { backgroundColor: 'rgba(23,32,25,0.07)' },
   avatarCount: { color: COLORS.mute, fontSize: 12, marginLeft: 8 },
 
   /* empty */

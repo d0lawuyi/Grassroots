@@ -589,7 +589,7 @@ const s = StyleSheet.create({
 
   noteBox: {
     flexDirection: 'row', gap: 10, marginTop: 16, padding: 14, borderRadius: 14,
-    backgroundColor: COLORS.coralLight, borderWidth: 1, borderColor: 'rgba(253,186,116,0.3)',
+    backgroundColor: COLORS.coralLight, borderWidth: 1, borderColor: 'rgba(185,68,27,0.3)',
   },
   noteBoxText: { color: COLORS.snow, flex: 1, fontSize: 14, lineHeight: 20 },
   lockBox: {
@@ -632,12 +632,12 @@ const s = StyleSheet.create({
   photo: { width: 110, height: 82, borderRadius: 12 },
   addPhoto: { borderWidth: 1, borderStyle: 'dashed', borderColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
   coverTag: {
-    position: 'absolute', left: 6, bottom: 6, backgroundColor: 'rgba(7,9,7,0.75)', color: COLORS.snow,
+    position: 'absolute', left: 6, bottom: 6, backgroundColor: 'rgba(255,253,248,0.75)', color: COLORS.snow,
     fontSize: 11, fontWeight: '700', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, overflow: 'hidden',
   },
   removePhoto: {
     position: 'absolute', top: 5, right: 5, width: 24, height: 24, borderRadius: 12,
-    backgroundColor: 'rgba(7,9,7,0.75)', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,253,248,0.75)', alignItems: 'center', justifyContent: 'center',
   },
 
   proofBtn: {

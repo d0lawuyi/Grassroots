@@ -489,7 +489,7 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.ink },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.ink },
-  content: { paddingHorizontal: 20, paddingTop: 62, paddingBottom: 40 },
+  content: { paddingHorizontal: 20, paddingTop: 62, paddingBottom: 120 },
 
   headerRow: {
     flexDirection: 'row', justifyContent: 'space-between',
@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
   /* reliability */
   barTrack: {
     height: 4, borderRadius: 2,
-    backgroundColor: 'rgba(244,246,242,0.10)', overflow: 'hidden',
+    backgroundColor: 'rgba(23,32,25,0.10)', overflow: 'hidden',
   },
   barFill: { height: '100%', borderRadius: 2, backgroundColor: COLORS.primary },
   barNote: { color: COLORS.mute, fontSize: 11.5, marginTop: 8, fontWeight: '600' },
@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
 
   fieldRow: { flexDirection: 'row', gap: 10 },
   input: {
-    backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 12, paddingHorizontal: 14, height: 46,
+    backgroundColor: COLORS.inkRaised, borderRadius: 12, paddingHorizontal: 14, height: 46,
     fontSize: 15, color: COLORS.snow, borderWidth: 1, borderColor: COLORS.line,
   },
 
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
   badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   badge: {
     width: '47%', backgroundColor: COLORS.paleGreen, borderRadius: 15, padding: 12,
-    borderWidth: 1, borderColor: 'rgba(215,255,62,0.22)',
+    borderWidth: 1, borderColor: 'rgba(23,68,47,0.22)',
   },
   badgeLocked: { backgroundColor: 'rgba(0,0,0,0.25)', borderColor: COLORS.line },
   badgeIcon: {
@@ -623,4 +623,4 @@ const styles = StyleSheet.create({
 
   devReset: { alignItems: 'center', marginTop: 10, paddingVertical: 10 },
   devResetText: { color: COLORS.faint, fontSize: 12, fontWeight: '600' },
-});
+});

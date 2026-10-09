@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2, marginTop: 34, marginBottom: 11,
   },
   reviewInput: {
-    backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 16, padding: 16,
+    backgroundColor: COLORS.inkRaised, borderRadius: 16, padding: 16,
     minHeight: 110, fontSize: 15, color: COLORS.snow, lineHeight: 21,
     borderWidth: 1, borderColor: COLORS.line,
   },

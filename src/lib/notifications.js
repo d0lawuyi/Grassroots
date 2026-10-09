@@ -23,7 +23,7 @@ export async function requestPermission() {
       name: 'Game reminders',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#A3E635',
+      lightColor: '#17442F',
     });
   }
 
