@@ -119,7 +119,7 @@ services/python/
     parks_import.py   the OpenStreetMap import
     precheck.py       the four checks
     sideline.py       the newsletter
-  tests/              30 tests, no internet or database needed
+  tests/              34 tests, no internet or database needed
   out/                previews land here (ignored by git)
 ```
 

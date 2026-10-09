@@ -71,4 +71,33 @@ def load_settings() -> Settings:
             "SUPABASE_SERVICE_ROLE_KEY is missing. In Supabase go to Project Settings > API Keys, "
             "copy the secret (service_role) key, and put it in services/python/.env."
         )
+    if key_role(key) == "anon":
+        raise MissingSetting(
+            "SUPABASE_SERVICE_ROLE_KEY is the public (anon / publishable) key, the same one the app uses. "
+            "It can't see review queues or add venues. In Supabase go to Project Settings > API Keys and "
+            "copy the secret key (sb_secret_...) or the service_role key instead."
+        )
     return Settings(supabase_url=url, service_key=key)
+
+
+def key_role(key: str) -> str | None:
+    """'anon', 'service_role', or None if it can't tell.
+
+    New-style keys say what they are in their prefix. Old-style keys are JWTs: three
+    base64 parts separated by dots, and the middle part is JSON that includes the role.
+    """
+    if key.startswith("sb_publishable_"):
+        return "anon"
+    if key.startswith("sb_secret_"):
+        return "service_role"
+    parts = key.split(".")
+    if len(parts) == 3:
+        import base64
+        import json
+
+        payload = parts[1] + "=" * (-len(parts[1]) % 4)  # base64 needs padding to a multiple of 4
+        try:
+            return json.loads(base64.urlsafe_b64decode(payload)).get("role")
+        except (ValueError, json.JSONDecodeError):
+            return None
+    return None
