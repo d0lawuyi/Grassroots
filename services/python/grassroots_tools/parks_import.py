@@ -160,11 +160,33 @@ def fetch_overpass(query: str) -> dict[str, Any]:
             status = getattr(err, "status", None)
             if status is not None and status not in (429, 500, 502, 503, 504):
                 raise  # a real error in our request, not a busy server: don't hide it
-            print(f"  {url.split('/')[2]} is busy, trying the next server...")
+            reason = f"HTTP {status}" if status else type(err).__name__
+            print(f"  {url.split('/')[2]} didn't answer ({reason}), trying the next server...")
             last_error = err
     raise SystemExit(
         "All OpenStreetMap servers are busy right now. Nothing was added. Wait a few minutes and run the same command again."
     ) from last_error
+
+
+CACHE_HOURS = 24
+
+
+def cached_overpass(city: str, state: str, query: str) -> dict[str, Any]:
+    """Reuse a map answer from the last 24 hours instead of asking the servers again.
+
+    Fields don't move overnight, and the free servers are often busy, so a dry run
+    followed by --commit only needs to download the data once.
+    """
+    import time
+
+    cache = OUT_DIR / f"overpass-{normalize_name(city).replace(' ', '-')}-{state.lower()}.json"
+    if cache.exists() and time.time() - cache.stat().st_mtime < CACHE_HOURS * 3600:
+        print(f"Using map data saved {int((time.time() - cache.stat().st_mtime) / 60)} minutes ago")
+        return json.loads(cache.read_text(encoding="utf-8"))
+    answer = fetch_overpass(query)
+    OUT_DIR.mkdir(exist_ok=True)
+    cache.write_text(json.dumps(answer), encoding="utf-8")
+    return answer
 
 
 def run(db, *, city: str, state: str, commit: bool, limit: int | None = None) -> dict[str, Any]:
@@ -174,7 +196,7 @@ def run(db, *, city: str, state: str, commit: bool, limit: int | None = None) ->
         raise SystemExit(f"Couldn't find {city}, {state} on the map. Check the spelling.")
     print(f"Searching {place['label']}")
 
-    answer = fetch_overpass(overpass_query(place["bbox"]))
+    answer = cached_overpass(city, state, overpass_query(place["bbox"]))
     pitches, parks = parse_overpass(answer.get("elements", []))
     venues = group_into_venues(pitches, parks)
     print(f"Found {len(pitches)} sports pitches in {len(parks)} named parks -> {len(venues)} possible venues")
