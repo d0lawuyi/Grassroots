@@ -10,6 +10,7 @@ import { COLORS } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
 import NextUpCard from '../components/NextUpCard';
 import { openDirections } from '../utils/directions';
+import { fetchHiddenGameIds, hideGame, REMOVE_TITLE, removeMessage } from '../lib/hiddenGames';
 
 export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpenSeries }) {
   const [sections, setSections] = useState([]);
@@ -22,7 +23,9 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpen
     if (showSpinner) setLoading(true);
     const now = new Date().toISOString();
 
-        const { data: bookings } = await supabase
+    const hidden = await fetchHiddenGameIds(userId);
+
+    const { data: bookings } = await supabase
       .from('bookings')
       .select('rating_given, games(*, parks(name, latitude, longitude))')
       .eq('player_id', userId);
@@ -31,7 +34,7 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpen
       .filter((b) => b.games)
       .map((b) => ({ ...b.games, myRating: b.rating_given }));
 
-       const { data: orgGames } = await supabase
+    const { data: orgGames } = await supabase
       .from('games')
       .select('*, parks(name, latitude, longitude)')
       .eq('organizer_id', userId);
@@ -44,7 +47,7 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpen
       .forEach((g) => {
         pastById[g.game_id] = { ...(pastById[g.game_id] || {}), ...g };
       });
-    const past = Object.values(pastById).sort(
+    const past = Object.values(pastById).filter((g) => !hidden.has(g.game_id)).sort(
       (a, b) => new Date(b.start_time) - new Date(a.start_time)
     );
 
@@ -147,6 +150,29 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpen
     await fetchMyGames(false);
   }
 
+  // Played games only: hides the game and its chat for this user.
+  function confirmRemove(game) {
+    Alert.alert(REMOVE_TITLE, removeMessage(game.title), [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => removeGame(game) },
+    ]);
+  }
+
+  async function removeGame(game) {
+    const problem = await hideGame(userId, game.game_id);
+    if (problem) {
+      Alert.alert('Could not remove', problem);
+      return;
+    }
+    await fetchMyGames(false);
+  }
+
+  const SWIPE = {
+    delete: { icon: 'trash-outline', label: 'Delete', run: (g) => confirmDelete(g) },
+    leave: { icon: 'exit-outline', label: 'Leave', run: (g) => confirmLeave(g) },
+    remove: { icon: 'trash-outline', label: 'Remove', run: (g) => confirmRemove(g) },
+  };
+
   function RightAction({ drag, game, action }) {
     const styleAnimation = useAnimatedStyle(() => ({
       transform: [{ translateX: drag.value + 98 }],
@@ -156,17 +182,11 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpen
       <Reanimated.View style={styleAnimation}>
         <TouchableOpacity
           style={styles.swipeAction}
-          onPress={() => (action === 'delete' ? confirmDelete(game) : confirmLeave(game))}
+          onPress={() => SWIPE[action].run(game)}
           activeOpacity={0.85}
         >
-          <Ionicons
-            name={action === 'delete' ? 'trash-outline' : 'exit-outline'}
-            size={22}
-            color={COLORS.snow}
-          />
-          <Text style={styles.swipeActionText}>
-            {action === 'delete' ? 'Delete' : 'Leave'}
-          </Text>
+          <Ionicons name={SWIPE[action].icon} size={22} color={COLORS.white} />
+          <Text style={styles.swipeActionText}>{SWIPE[action].label}</Text>
         </TouchableOpacity>
       </Reanimated.View>
     );
@@ -204,7 +224,7 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpen
           sections={sections}
           keyExtractor={(item) => item.game_id}
           stickySectionHeadersEnabled={false}
-          contentContainerStyle={{ padding: 20 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -239,7 +259,7 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpen
             const isPast = section.title === 'Past';
             const swipeAction =
               section.title === 'Organizing' ? 'delete' :
-              section.title === 'Joined' ? 'leave' : null;
+              section.title === 'Joined' ? 'leave' : 'remove';
 
             const card = (
               <TouchableOpacity
@@ -295,28 +315,43 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpen
                   </TouchableOpacity>
                 )}
 
-                {isPast && item.myRating ? (
-                  <View style={styles.ratedRow}>
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <Ionicons
-                        key={i}
-                        name={item.myRating >= i ? 'star' : 'star-outline'}
-                        size={15}
-                        color={item.myRating >= i ? COLORS.primary : COLORS.neutral300}
-                      />
-                    ))}
-                    <Text style={styles.ratedText}>You rated this</Text>
+                {isPast && (
+                  <View style={styles.pastFooter}>
+                    {item.myRating ? (
+                      <View style={styles.ratedRow}>
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <Ionicons
+                            key={i}
+                            name={item.myRating >= i ? 'star' : 'star-outline'}
+                            size={15}
+                            color={item.myRating >= i ? COLORS.primary : COLORS.neutral300}
+                          />
+                        ))}
+                        <Text style={styles.ratedText}>You rated this</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.rateButton]}
+                        onPress={() => onRateGame(item)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="star-outline" size={16} color={COLORS.ink} />
+                        <Text style={styles.actionTextPrimary}>Rate this game</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity
+                      style={styles.removeLink}
+                      onPress={() => confirmRemove(item)}
+                      activeOpacity={0.7}
+                      accessibilityLabel={`Remove ${item.title} from your games`}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="trash-outline" size={15} color={COLORS.neutral700} />
+                      <Text style={styles.removeLinkText}>Remove</Text>
+                    </TouchableOpacity>
                   </View>
-                ) : isPast ? (
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.rateButton]}
-                    onPress={() => onRateGame(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="star-outline" size={16} color={COLORS.ink} />
-                    <Text style={styles.actionTextPrimary}>Rate this game</Text>
-                  </TouchableOpacity>
-                ) : null}
+                )}
               </TouchableOpacity>
             );
 
@@ -374,7 +409,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cardFill, borderRadius: 20, padding: 18,
     marginBottom: 14, borderWidth: 1, borderColor: COLORS.line,
   },
-  cardPast: { backgroundColor: 'rgba(0,0,0,0.25)', borderColor: 'rgba(244,246,242,0.06)' },
+  cardPast: { backgroundColor: 'rgba(0,0,0,0.25)', borderColor: 'rgba(23,32,25,0.06)' },
   cardTop: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: 10,
@@ -421,5 +456,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginLeft: 10,
   },
-  swipeActionText: { color: COLORS.snow, fontWeight: '800', fontSize: 12, marginTop: 4 },
+  swipeActionText: { color: COLORS.white, fontWeight: '800', fontSize: 12, marginTop: 4 },
+
+  // Played games: rate (or your stars) on the left, Remove on the right
+  pastFooter: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  removeLink: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8 },
+  removeLinkText: { color: COLORS.neutral700, fontWeight: '700', fontSize: 13 },
 });

@@ -1,5 +1,24 @@
 # Grassroots
 
+## Clubhouse look
+
+Light cream, forest green and clay, with liquid-glass surfaces and a serif heading font.
+
+### One-time setup
+Install the heading font, then restart with a clear cache:
+
+```
+npx expo install @expo-google-fonts/fraunces
+npx expo start -c
+```
+
+### Where the look lives
+- `src/theme/colors.js`: the palette. Token names are kept from the old dark theme, so `ink` is the page background and `snow` is the main text.
+- `src/theme/fonts.js`: heading font names. Body text uses the phone's own font.
+- `src/theme/mapStyle.js`: the light map style (`MAP_STYLE`).
+- `App.js`: loads the font and draws the floating glass tab bar.
+- `src/screens/ExploreScreen.js`: photo-first venue cards and the venue page.
+
 ## Phase 1: verified venues (owner listing, admin approval)
 
 Owners list a venue from Profile > List your venue. Admins approve it from

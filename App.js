@@ -12,6 +12,8 @@ import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BlurView } from 'expo-blur';
+import { useFonts, Fraunces_600SemiBold, Fraunces_700Bold } from '@expo-google-fonts/fraunces';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { supabase } from './src/lib/supabase';
@@ -31,9 +33,34 @@ import MySeriesScreen from './src/screens/MySeriesScreen';
 import Onboarding from './src/screens/Onboarding';
 import ListVenueScreen from './src/screens/ListVenueScreen';
 import AdminReviewScreen from './src/screens/AdminReviewScreen';
+import { fetchHiddenGameIds } from './src/lib/hiddenGames';
 import { COLORS } from './src/theme/colors';
 
 const ONBOARDING_KEY = 'grassroots:onboarding_complete_v9';
+
+// Dark grey-green for tabs that aren't selected (matches the Clubhouse mockup).
+const TAB_IDLE = COLORS.neutral700;
+
+// Rating prompt on launch: once per game, within 2 days of the final whistle.
+const REVIEW_PROMPTED_KEY = 'grassroots.reviewPromptedGameIds';
+const REVIEW_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
+
+async function readPromptedIds() {
+  try {
+    const raw = await AsyncStorage.getItem(REVIEW_PROMPTED_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+const TABS = [
+  { key: 'explore', label: 'Explore', icon: 'compass-outline', activeIcon: 'compass' },
+  { key: 'messages', label: 'Chats', icon: 'chatbubble-outline', activeIcon: 'chatbubble' },
+  { key: 'mygames', label: 'My games', icon: 'calendar-outline', activeIcon: 'calendar' },
+  { key: 'profile', label: 'Profile', icon: 'person-outline', activeIcon: 'person' },
+];
 
 const DEFAULT_LOCATION = {
   latitude: 39.7684,
@@ -42,6 +69,7 @@ const DEFAULT_LOCATION = {
 
 export default function App() {
   const [loading, setLoading] = useState(true);
+  const [fontsLoaded, fontError] = useFonts({ Fraunces_600SemiBold, Fraunces_700Bold });
 
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -130,6 +158,8 @@ export default function App() {
   useEffect(() => {
     if (!session) return;
 
+    // Ask once per game, and only for games that just finished. Skipping it
+    // (or rating later from My Games) means the prompt never comes back on launch.
     async function checkUnrated() {
       const { data } = await supabase
         .from('bookings')
@@ -137,12 +167,28 @@ export default function App() {
         .eq('player_id', session.user.id)
         .is('rating_given', null);
 
+      const now = Date.now();
+      const [asked, hidden] = await Promise.all([
+        readPromptedIds(),
+        fetchHiddenGameIds(session.user.id),
+      ]);
+
       const finished = (data || [])
-        .filter((b) => b.games && b.games.end_time < new Date().toISOString())
         .map((b) => b.games)
+        .filter((g) => {
+          if (!g?.end_time) return false;
+          const ended = new Date(g.end_time).getTime();
+          return ended < now && now - ended < REVIEW_WINDOW_MS;
+        })
+        .filter((g) => !asked.includes(String(g.game_id)) && !hidden.has(g.game_id))
         .sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
 
-      if (finished.length > 0) setReviewGame(finished[0]);
+      if (finished.length === 0) return;
+
+      // Remember every game we passed over too, so older ones don't queue up behind this one.
+      const ids = finished.map((g) => String(g.game_id));
+      await AsyncStorage.setItem(REVIEW_PROMPTED_KEY, JSON.stringify([...asked, ...ids].slice(-200)));
+      setReviewGame(finished[0]);
     }
 
     checkUnrated();
@@ -169,10 +215,11 @@ export default function App() {
     return <SplashLoadingScreen onFinish={() => setSplashDone(true)} />;
   }
 
-     if (onboardingSeen === null) {
+  // Wait for the heading font; if it fails to load, carry on with system fonts.
+  if (onboardingSeen === null || (!fontsLoaded && !fontError)) {
     return (
       <View style={styles.center}>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
@@ -185,7 +232,7 @@ export default function App() {
   if (authLoading) {
     return (
       <View style={styles.center}>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
@@ -198,7 +245,7 @@ export default function App() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Loading Grassroots</Text>
       </View>
@@ -207,7 +254,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <View style={styles.container}>
         <View style={styles.content}>
 
@@ -257,51 +304,31 @@ export default function App() {
           )}
         </View>
 
-        {/* BOTTOM TAB BAR */}
-        <View style={styles.tabBar}>
-          <TouchableOpacity style={styles.tab} onPress={() => switchTab('explore')}>
-            <Ionicons
-              name="compass-outline"
-              size={24}
-              color={activeTab === 'explore' ? COLORS.primary : COLORS.mute}
-            />
-            <Text style={[styles.tabText, activeTab === 'explore' && styles.tabTextActive]}>
-              Explore
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.tab} onPress={() => switchTab('messages')}>
-            <Ionicons
-              name="chatbubble-outline"
-              size={24}
-              color={activeTab === 'messages' ? COLORS.primary : COLORS.mute}
-            />
-            <Text style={[styles.tabText, activeTab === 'messages' && styles.tabTextActive]}>
-              Chats
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.tab} onPress={() => switchTab('mygames')}>
-            <Ionicons
-              name="calendar-outline"
-              size={24}
-              color={activeTab === 'mygames' ? COLORS.primary : COLORS.mute}
-            />
-            <Text style={[styles.tabText, activeTab === 'mygames' && styles.tabTextActive]}>
-              My Games
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.tab} onPress={() => switchTab('profile')}>
-            <Ionicons
-              name="person-outline"
-              size={24}
-              color={activeTab === 'profile' ? COLORS.primary : COLORS.mute}
-            />
-            <Text style={[styles.tabText, activeTab === 'profile' && styles.tabTextActive]}>
-              Profile
-            </Text>
-          </TouchableOpacity>
+        {/* BOTTOM TAB BAR: floating liquid-glass pill */}
+        <View style={styles.tabBarWrap}>
+          <View style={styles.tabBarShadow}>
+            <View style={styles.tabBar}>
+              <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
+              <View style={styles.tabBarTint} />
+              <View style={styles.tabBarSheen} pointerEvents="none" />
+              {TABS.map((t) => {
+                const on = activeTab === t.key;
+                return (
+                  <TouchableOpacity
+                    key={t.key}
+                    style={[styles.tab, on && styles.tabActive]}
+                    onPress={() => switchTab(t.key)}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={t.label}
+                  >
+                    <Ionicons name={on ? t.activeIcon : t.icon} size={22} color={on ? COLORS.primary : TAB_IDLE} />
+                    <Text style={[styles.tabText, on && styles.tabTextActive]}>{t.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
         </View>
 
         {/* CREATE GAME MODAL */}
@@ -457,31 +484,74 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
+  // Floats over the screen so content scrolls underneath and shows through the glass.
+  // Tab screens leave about 120px at the bottom of their lists for it.
+  tabBarWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 14,
+    paddingBottom: 22,
+  },
+
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: COLORS.inkRaised,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.line,
-    paddingTop: 8,
-    paddingBottom: 16,
+    height: 68,
+    borderRadius: 34,
+    padding: 5,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: 'transparent',
+  },
+
+  tabBarShadow: {
+    borderRadius: 34,
+    shadowColor: '#172019',
+    shadowOpacity: 0.16,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+  },
+
+  tabBarTint: {
+    ...StyleSheet.absoluteFillObject,
+    // Frosted cream glass: half see-through so the blur behind it shows
+    backgroundColor: 'rgba(255,253,248,0.5)',
+  },
+
+  // Bright 1px highlight along the top edge, the "lit glass" rim
+  tabBarSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 24,
+    right: 24,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.95)',
   },
 
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 4,
+    borderRadius: 29,
+  },
+
+  tabActive: {
+    backgroundColor: 'rgba(213,226,208,0.9)', // sage
   },
 
   tabText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '600',
-    color: COLORS.mute,
-    marginTop: 3,
+    color: TAB_IDLE,
+    marginTop: 2,
   },
 
   tabTextActive: {
     color: COLORS.primary,
+    fontWeight: '800',
   },
 
   sheetBackdrop: {

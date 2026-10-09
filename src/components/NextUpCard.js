@@ -4,10 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
 
 const TONES = [
-  'rgba(244,246,242,0.30)',
-  'rgba(244,246,242,0.22)',
-  'rgba(244,246,242,0.16)',
-  'rgba(244,246,242,0.11)',
+  'rgba(23,32,25,0.30)',
+  'rgba(23,32,25,0.22)',
+  'rgba(23,32,25,0.16)',
+  'rgba(23,32,25,0.11)',
 ];
 
 function countdown(startTime) {

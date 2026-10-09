@@ -1,67 +1,92 @@
+/*
+ * Grassroots "Clubhouse" palette: cream ground, forest green, clay accent.
+ *
+ * The token names are kept from the original dark theme so every screen
+ * picks up the new look without renaming. Read them as roles:
+ *   ink       page background (and text placed on a primary button)
+ *   snow      main text
+ *   primary   brand forest green: buttons, active states, accent text
+ */
 export const COLORS = {
   /* core palette */
-  ink:        '#070907',
-  inkRaised:  '#0E120E',
-  cardFill:   'rgba(244,246,242,0.045)',
-  lime:       '#D7FF3E',
-  limeDim:    'rgba(215,255,62,0.12)',
-  snow:       '#F4F6F2',
-  mute:       'rgba(244,246,242,0.45)',
-  faint:      'rgba(244,246,242,0.28)',
-  line:       'rgba(244,246,242,0.10)',
+  ink:        '#F4F0E6', // cream page background
+  inkRaised:  '#FFFDF8', // raised surface: inputs, sheets, tab bar
+  cardFill:   '#FFFDF8', // cards
+  lime:       '#17442F', // legacy name, now forest
+  limeDim:    'rgba(23,68,47,0.10)',
+  snow:       '#172019', // main text
+  mute:       '#59625B', // secondary text
+  faint:      '#7E867F', // placeholders, tertiary text
+  line:       'rgba(23,32,25,0.12)',
+
+  /* brand */
+  forest:        '#17442F',
+  forestDeep:    '#0E2E1F',
+  clay:          '#B9441B',
+  clayLight:     'rgba(185,68,27,0.12)',
+  sage:          '#D5E2D0',
 
   /* primary / accent */
-  primary:       '#D7FF3E',
-  primaryLight:  'rgba(215,255,62,0.20)',
-  primaryDark:   '#070907',
-  accent:        '#7DD3FC',
-  softGreen:     'rgba(215,255,62,0.12)',
-  paleGreen:     'rgba(215,255,62,0.07)',
-  soil:          'rgba(215,255,62,0.18)',
-  soilDark:      'rgba(215,255,62,0.10)',
+  primary:       '#17442F',
+  primaryLight:  'rgba(23,68,47,0.14)',
+  primaryDark:   '#0E2E1F',
+  accent:        '#B9441B',
+  softGreen:     'rgba(23,68,47,0.10)',
+  paleGreen:     'rgba(23,68,47,0.06)',
+  soil:          'rgba(23,68,47,0.14)',
+  soilDark:      'rgba(23,68,47,0.08)',
+  field:         '#17442F',
+  fieldLight:    '#D5E2D0',
 
   /* text */
-  text:   '#F4F6F2',
-  muted:  'rgba(244,246,242,0.45)',
-  white:  '#F4F6F2',
-  black:  '#070907',
+  text:   '#172019',
+  muted:  '#59625B',
+  white:  '#FFFDF8',
+  black:  '#172019',
 
   /* canvas */
-  canvasTop:    '#070907',
-  canvasMid:    '#0B0F0B',
-  canvasBottom: '#070907',
+  canvasTop:     '#F4F0E6',
+  canvasMid:     '#F1ECE0',
+  canvasBottom:  '#F4F0E6',
+  gradientStart: '#F4F0E6',
+  gradientMid:   '#EEF3EA',
+  gradientEnd:   '#F4F0E6',
+  card:          '#FFFDF8',
+  border:        'rgba(23,32,25,0.12)',
 
-  /* neutral ramp — inverted for dark */
-  neutral50:   '#070907',
-  neutral100:  'rgba(244,246,242,0.06)',
-  neutral200:  'rgba(244,246,242,0.10)',
-  neutral300:  'rgba(244,246,242,0.16)',
-  neutral400:  'rgba(244,246,242,0.35)',
-  neutral500:  'rgba(244,246,242,0.45)',
-  neutral600:  'rgba(244,246,242,0.55)',
-  neutral700:  'rgba(244,246,242,0.68)',
-  neutral800:  'rgba(244,246,242,0.85)',
-  neutral900:  '#F4F6F2',
-  /* glass surfaces */
-  glass:        'rgba(244,246,242,0.045)',
-  glassSurface: 'rgba(14,18,14,0.82)',
-  glassBorder:  'rgba(244,246,242,0.10)',
-  shadow:       'rgba(0,0,0,0.6)',
-  subtle:       'rgba(244,246,242,0.35)',
+  /* neutral ramp: light ground, dark ink */
+  neutral50:   '#F4F0E6',
+  neutral100:  'rgba(23,32,25,0.05)',
+  neutral200:  'rgba(23,32,25,0.10)',
+  neutral300:  'rgba(23,32,25,0.18)',
+  neutral400:  'rgba(23,32,25,0.40)',
+  neutral500:  '#59625B',
+  neutral600:  '#4A524C',
+  neutral700:  '#3E4740',
+  neutral800:  '#2A322C',
+  neutral900:  '#172019',
 
-  /* card accents */
-  plum:       '#F0ABFC',
-  plumLight:  'rgba(240,171,252,0.16)',
-  coral:      '#FDBA74',
-  coralLight: 'rgba(253,186,116,0.16)',
-  teal:       '#7DD3FC',
-  tealLight:  'rgba(125,211,252,0.16)',
-  sand:       '#86EFAC',
-  sandLight:  'rgba(134,239,172,0.16)',
-  
-  /* status */
-  success: '#86EFAC',
-  warning: '#FDBA74',
-  danger:  '#FF6B6B',
-  info:    '#7DD3FC',
+  /* liquid glass surfaces */
+  glass:          'rgba(255,253,248,0.62)',
+  glassSurface:   'rgba(255,253,248,0.82)',
+  glassBorder:    'rgba(255,255,255,0.85)',
+  glassHighlight: 'rgba(255,255,255,0.95)',
+  shadow:         'rgba(23,32,25,0.14)',
+  subtle:         'rgba(23,32,25,0.40)',
+
+  /* card accents (darkened to read on cream) */
+  plum:       '#7A3E8E',
+  plumLight:  'rgba(122,62,142,0.12)',
+  coral:      '#B9441B',
+  coralLight: 'rgba(185,68,27,0.12)',
+  teal:       '#1F5E8C',
+  tealLight:  'rgba(31,94,140,0.12)',
+  sand:       '#2F7D4F',
+  sandLight:  'rgba(47,125,79,0.12)',
+
+  /* status, all 4.5:1 or better on cream */
+  success: '#2F6B3E',
+  warning: '#8A4B00',
+  danger:  '#B42318',
+  info:    '#1F5E8C',
 };

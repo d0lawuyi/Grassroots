@@ -405,7 +405,7 @@ const s = StyleSheet.create({
   proof: { width: '100%', height: 260, borderRadius: 14, marginTop: 10, backgroundColor: COLORS.inkRaised },
 
   check: { marginTop: 10, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: COLORS.line, backgroundColor: COLORS.cardFill },
-  checkFlag: { borderColor: 'rgba(253,186,116,0.5)', backgroundColor: COLORS.coralLight },
+  checkFlag: { borderColor: 'rgba(185,68,27,0.5)', backgroundColor: COLORS.coralLight },
   checkTop: { flexDirection: 'row' },
   checkLabel: { color: COLORS.snow, fontSize: 16, fontWeight: '700' },
   checkHint: { color: COLORS.mute, fontSize: 13, marginTop: 2, lineHeight: 18 },

@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   schedule: { fontSize: 13, fontWeight: '700', color: COLORS.primary, marginTop: 3 },
   pausedBadge: {
     fontSize: 9, fontWeight: '800', color: COLORS.mute, letterSpacing: 1,
-    backgroundColor: 'rgba(244,246,242,0.07)',
+    backgroundColor: 'rgba(23,32,25,0.07)',
     paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, overflow: 'hidden',
   },
   meta: { fontSize: 12.5, color: COLORS.mute, marginTop: 6 },

@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1, maxHeight: 110, minHeight: 44,
-    backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 22,
+    backgroundColor: COLORS.inkRaised, borderRadius: 22,
     paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12,
     fontSize: 15, color: COLORS.snow,
     borderWidth: 1, borderColor: COLORS.line,
