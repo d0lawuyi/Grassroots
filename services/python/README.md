@@ -139,3 +139,24 @@ fetching and saving around them.
 
 Field locations from OpenStreetMap, (c) OpenStreetMap contributors, under the Open Database
 License. Address lookups use OpenStreetMap's Nominatim service, limited to one request per second.
+
+---
+
+## Running on a schedule (GitHub Actions)
+
+`.github/workflows/scheduled.yml` runs the tools for you on GitHub's computers:
+
+| Tool | When |
+|---|---|
+| `precheck` | Every hour, at 7 minutes past |
+| `sideline` | Mondays at 9:03 AM Indianapolis time (8:03 in winter). The preview is saved with the run: open it under **Actions** and download **the-sideline** from Artifacts. |
+
+To turn them on, add two repository secrets in GitHub: **Settings > Secrets and variables >
+Actions > New repository secret**, one called `SUPABASE_URL` and one called
+`SUPABASE_SERVICE_ROLE_KEY`, with the same values as your `.env`. Until then the jobs skip
+themselves instead of failing.
+
+To run one right away: **Actions > Scheduled tools > Run workflow**, then pick the tool.
+
+GitHub pauses scheduled jobs in a repository that has had no commits for 60 days; a push
+or a click on **Enable workflow** starts them again.
