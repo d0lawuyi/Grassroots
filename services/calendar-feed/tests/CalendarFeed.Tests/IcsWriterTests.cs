@@ -13,7 +13,7 @@ public class IcsWriterTests
     }
 
     [Theory]
-    [InlineData("Soccer; 5v5, bring water", "Soccer\; 5v5\\, bring water")]
+    [InlineData("Soccer; 5v5, bring water", "Soccer\\; 5v5\\, bring water")]
     [InlineData("Line one\nLine two", "Line one\\nLine two")]
     [InlineData("C:\\fields", "C:\\\\fields")]
     public void Text_is_escaped(string input, string expected) =>
