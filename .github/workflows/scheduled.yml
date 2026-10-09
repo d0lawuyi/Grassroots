@@ -1,0 +1,101 @@
+# CD: the Python tools on a schedule, so nobody has to run them by hand.
+#
+#   Admin pre-check   every hour at :07   checks new venue submissions for the admin screen
+#   The Sideline      Mondays 9:03 AM     builds the newsletter preview (Indianapolis time, EDT)
+#
+# Both can also be started by hand: GitHub > Actions > Scheduled tools > Run workflow.
+#
+# Needs two repository secrets (GitHub > Settings > Secrets and variables > Actions):
+#   SUPABASE_URL                the project URL
+#   SUPABASE_SERVICE_ROLE_KEY   the secret key
+# Without them the jobs skip themselves instead of failing.
+#
+# Times are in UTC, and GitHub may start scheduled runs a few minutes late when it's busy.
+# Odd minutes (:07, :03) avoid the top of the hour, when GitHub is busiest.
+
+name: Scheduled tools
+
+on:
+  schedule:
+    - cron: "7 * * * *"   # every hour
+    - cron: "3 13 * * 1"  # Mondays 13:03 UTC = 9:03 AM EDT (8:03 AM in winter)
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: Which tool to run
+        type: choice
+        options: [precheck, sideline]
+        default: precheck
+
+# Never run two copies of the same tool at once
+concurrency:
+  group: scheduled-${{ github.event.schedule || inputs.tool }}
+  cancel-in-progress: false
+
+jobs:
+  precheck:
+    name: Admin pre-check
+    if: github.event.schedule == '7 * * * *' || inputs.tool == 'precheck'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/python
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Check the secrets are set
+        id: secrets
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::notice::Skipped: add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY as repository secrets to turn this on."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Pre-check waiting venues
+        if: steps.secrets.outputs.ready == 'true'
+        run: python -m grassroots_tools precheck
+
+  sideline:
+    name: The Sideline
+    if: github.event.schedule == '3 13 * * 1' || inputs.tool == 'sideline'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/python
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Check the secrets are set
+        id: secrets
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::notice::Skipped: add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY as repository secrets to turn this on."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build this week's issue
+        if: steps.secrets.outputs.ready == 'true'
+        run: python -m grassroots_tools sideline
+      # The preview is kept with the run for 30 days: open the run on GitHub and
+      # download "the-sideline" under Artifacts.
+      - name: Save the preview
+        if: steps.secrets.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: the-sideline
+          path: services/python/out/sideline-*
+          retention-days: 30
