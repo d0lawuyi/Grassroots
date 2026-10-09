@@ -58,7 +58,11 @@ def load_settings() -> Settings:
         or app.get("EXPO_PUBLIC_SUPABASE_URL")
         or ""
     ).rstrip("/")
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or local.get("SUPABASE_SERVICE_ROLE_KEY") or ""
+    # Supabase shows the API address both with and without /rest/v1 on the end.
+    # The tools add /rest/v1 themselves, so take it off if it was pasted in.
+    if url.endswith("/rest/v1"):
+        url = url[: -len("/rest/v1")]
+    key =os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or local.get("SUPABASE_SERVICE_ROLE_KEY") or ""
 
     if not url:
         raise MissingSetting("SUPABASE_URL is missing. Add it to services/python/.env (see .env.example).")
