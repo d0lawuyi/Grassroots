@@ -54,6 +54,14 @@ def nearest(lat: float, lon: float, places: list[dict[str, Any]]) -> tuple[dict[
     return best, best_d
 
 
+def street_address(addr: dict[str, Any]) -> str | None:
+    """Nominatim's address parts -> '1200 W 38th St', or just the road if there's no number."""
+    road = addr.get("road") or addr.get("pedestrian") or addr.get("footway") or addr.get("path")
+    if not road:
+        return None
+    return f"{addr['house_number']} {road}" if addr.get("house_number") else road
+
+
 class Geocoder:
     """Turns an address into map coordinates using OpenStreetMap's Nominatim.
 
@@ -92,3 +100,16 @@ class Geocoder:
             }
         self._cache[query] = hit
         return hit
+
+    def reverse(self, lat: float, lon: float) -> str | None:
+        """Map point -> nearest street address, or None if there isn't one."""
+        wait = 1.1 - (time.monotonic() - self._last_call)
+        if wait > 0:
+            time.sleep(wait)
+        self._last_call = time.monotonic()
+        r = request_json(
+            "GET",
+            "https://nominatim.openstreetmap.org/reverse",
+            params={"lat": f"{lat:.6f}", "lon": f"{lon:.6f}", "format": "jsonv2", "zoom": 17},
+        ) or {}
+        return street_address(r.get("address") or {})

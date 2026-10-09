@@ -10,6 +10,7 @@ import MapView, { Marker } from 'react-native-maps';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
 import { DARK_MAP } from '../theme/mapStyle';
+import { MapTypeToggle } from '../components/SatelliteView';
 
 const SPORTS = [
   { label: 'Soccer', value: 'soccer' },
@@ -94,6 +95,8 @@ export default function ListVenueScreen({ userId, userLocation, onClose }) {
   const [uploading, setUploading] = useState(false);
   const [draftKey, setDraftKey] = useState(fileKey());
   const mapRef = useRef(null);
+  // Satellite by default: owners can see the actual field and pin its entrance exactly
+  const [mapSatellite, setMapSatellite] = useState(true);
 
   async function loadMine() {
     const { data, error } = await supabase
@@ -449,7 +452,8 @@ export default function ListVenueScreen({ userId, userLocation, onClose }) {
           <MapView
             ref={mapRef}
             style={StyleSheet.absoluteFill}
-            customMapStyle={DARK_MAP}
+            mapType={mapSatellite ? 'hybrid' : 'standard'}
+            customMapStyle={mapSatellite ? undefined : DARK_MAP}
             initialRegion={{ ...center, latitudeDelta: pin ? 0.01 : 0.12, longitudeDelta: pin ? 0.01 : 0.12 }}
             onLongPress={(e) => editable && setForm((f) => ({ ...f, ...e.nativeEvent.coordinate }))}
           >
@@ -461,6 +465,7 @@ export default function ListVenueScreen({ userId, userLocation, onClose }) {
               />
             ) : null}
           </MapView>
+          <MapTypeToggle satellite={mapSatellite} onChange={setMapSatellite} style={{ top: 10, right: 10 }} />
         </View>
 
         <Text style={s.label}>Price</Text>

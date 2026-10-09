@@ -24,9 +24,15 @@ from typing import Any
 
 from .config import OUT_DIR
 from .geo import Geocoder, distance_m, name_similarity, nearest, normalize_name
-from .web import request_json
+from .web import HttpError, request_json
 
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+# The main Overpass server is free and often busy. If it answers "too busy" (429/504),
+# the same query is sent to the next mirror. All three serve the same OpenStreetMap data.
+OVERPASS_URLS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+]
 
 # OpenStreetMap sport tag -> the sport ids the app uses (see SPORTS in ExploreScreen.js)
 SPORT_MAP = {
@@ -144,6 +150,45 @@ def is_duplicate(venue: Venue, existing: list[dict[str, Any]]) -> tuple[bool, st
     return False, ""
 
 
+def fetch_overpass(query: str) -> dict[str, Any]:
+    """Send the query to each Overpass server in turn until one answers."""
+    last_error: Exception | None = None
+    for url in OVERPASS_URLS:
+        try:
+            return request_json("POST", url, form={"data": query}, timeout=120, retries=1)
+        except (HttpError, OSError) as err:  # OSError covers timeouts and dropped connections
+            status = getattr(err, "status", None)
+            if status is not None and status not in (429, 500, 502, 503, 504):
+                raise  # a real error in our request, not a busy server: don't hide it
+            reason = f"HTTP {status}" if status else type(err).__name__
+            print(f"  {url.split('/')[2]} didn't answer ({reason}), trying the next server...")
+            last_error = err
+    raise SystemExit(
+        "All OpenStreetMap servers are busy right now. Nothing was added. Wait a few minutes and run the same command again."
+    ) from last_error
+
+
+CACHE_HOURS = 24
+
+
+def cached_overpass(city: str, state: str, query: str) -> dict[str, Any]:
+    """Reuse a map answer from the last 24 hours instead of asking the servers again.
+
+    Fields don't move overnight, and the free servers are often busy, so a dry run
+    followed by --commit only needs to download the data once.
+    """
+    import time
+
+    cache = OUT_DIR / f"overpass-{normalize_name(city).replace(' ', '-')}-{state.lower()}.json"
+    if cache.exists() and time.time() - cache.stat().st_mtime < CACHE_HOURS * 3600:
+        print(f"Using map data saved {int((time.time() - cache.stat().st_mtime) / 60)} minutes ago")
+        return json.loads(cache.read_text(encoding="utf-8"))
+    answer = fetch_overpass(query)
+    OUT_DIR.mkdir(exist_ok=True)
+    cache.write_text(json.dumps(answer), encoding="utf-8")
+    return answer
+
+
 def run(db, *, city: str, state: str, commit: bool, limit: int | None = None) -> dict[str, Any]:
     geocoder = Geocoder()
     place = geocoder.lookup(f"{city}, {state}, USA")
@@ -151,7 +196,7 @@ def run(db, *, city: str, state: str, commit: bool, limit: int | None = None) ->
         raise SystemExit(f"Couldn't find {city}, {state} on the map. Check the spelling.")
     print(f"Searching {place['label']}")
 
-    answer = request_json("POST", OVERPASS_URL, form={"data": overpass_query(place["bbox"])}, timeout=120)
+    answer = cached_overpass(city, state, overpass_query(place["bbox"]))
     pitches, parks = parse_overpass(answer.get("elements", []))
     venues = group_into_venues(pitches, parks)
     print(f"Found {len(pitches)} sports pitches in {len(parks)} named parks -> {len(venues)} possible venues")
@@ -192,6 +237,12 @@ def run(db, *, city: str, state: str, commit: bool, limit: int | None = None) ->
 
     inserted = 0
     if commit and rows:
+        # Venues need a street address. Look up the nearest one for each pin
+        # (one per second, so 100 venues take about two minutes).
+        print(f"Looking up street addresses for {len(rows)} venues...")
+        for row in rows:
+            street = geocoder.reverse(row["latitude"], row["longitude"])
+            row["address"] = street or row["name"]
         inserted = len(db.insert("parks", rows))
         print(f"Added {inserted} venues to Supabase (unverified).")
     elif rows:

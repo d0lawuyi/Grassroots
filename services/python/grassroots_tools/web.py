@@ -14,9 +14,22 @@ from .config import USER_AGENT
 
 class HttpError(RuntimeError):
     def __init__(self, status: int, body: str, url: str):
-        super().__init__(f"HTTP {status} from {url}: {body[:400]}")
+        super().__init__(f"HTTP {status} from {url.split('?')[0]}: {self.explain(body)}")
         self.status = status
         self.body = body
+
+    @staticmethod
+    def explain(body: str) -> str:
+        """Supabase errors are JSON; put the human-readable message first so it isn't cut off."""
+        try:
+            data = json.loads(body)
+        except ValueError:
+            return body[:400]
+        if isinstance(data, dict) and data.get("message"):
+            extra = f" (code {data['code']})" if data.get("code") else ""
+            hint = f" Hint: {data['hint']}" if data.get("hint") else ""
+            return f"{data['message']}{extra}.{hint}"
+        return body[:400]
 
 
 def request_json(
