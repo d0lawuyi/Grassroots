@@ -47,6 +47,11 @@ class DigestTest(unittest.TestCase):
         self.assertEqual([v["name"] for v in d.new_venues], ["Central Green Field"])
         self.assertEqual(d.busiest_venue, {"name": "Central Green Field", "games": 2})
 
+    def test_host_with_no_bookings_still_counts_as_a_player(self):
+        solo = [{**GAMES[0], "organizer_id": "u9"}]
+        d = build_digest(now=NOW, games=solo, bookings=[], users=[], parks=PARKS)
+        self.assertEqual((d.games_played, d.players), (1, 1))
+
     def test_nobody_featured_without_opt_in(self):
         self.assertIsNone(self.build([{"user_id": "u2", "full_name": "Sam Lee", "sideline_feature": False}]).player_of_week)
 

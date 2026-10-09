@@ -85,7 +85,8 @@ def build_digest(
     week_bookings = [b for b in bookings if b.get("game_id") in played_ids]
 
     d.games_played = len(played)
-    d.players = len({b["player_id"] for b in week_bookings})
+    # Hosts count as players too: the app doesn't always add the organizer to bookings.
+    d.players = len({b["player_id"] for b in week_bookings} | {g["organizer_id"] for g in played if g.get("organizer_id")})
 
     # Player of the week: games played + 1.5 per game hosted. Opted-in players only.
     featured = {u["user_id"]: u for u in users if u.get("sideline_feature")}
