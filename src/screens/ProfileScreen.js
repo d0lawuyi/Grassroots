@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import CalendarLinkRow from '../components/CalendarLinkRow';
 
 export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) {
   const [profile, setProfile] = useState(null);
@@ -483,6 +484,8 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
             </View>
             <Ionicons name="chevron-forward" size={20} color={COLORS.mute} />
           </TouchableOpacity>
+          {/* Owners only: subscribe their calendar to bookings (hidden until the feed is online) */}
+          <CalendarLinkRow userId={userId} />
           {isAdmin && (
             <TouchableOpacity style={styles.venueRow} onPress={onOpenAdmin} activeOpacity={0.85}>
               <Ionicons name="shield-checkmark-outline" size={22} color={COLORS.primary} />

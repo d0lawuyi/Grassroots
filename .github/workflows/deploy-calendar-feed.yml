@@ -1,0 +1,159 @@
+# CD: puts the C# calendar feed online in AWS Lambda.
+#
+# Runs when calendar-feed code changes on main, or by hand (Actions > Deploy calendar feed >
+# Run workflow). The first run creates the function and its public URL; later runs update it.
+# The tests must pass before anything is deployed.
+#
+# One-time setup (infra/calendar-feed/README.md walks through it):
+#   repository variables  AWS_REGION, AWS_DEPLOY_ROLE_ARN, AWS_LAMBDA_ROLE_ARN
+#   repository secrets    SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (the same ones the scheduled tools use)
+# Until the variables exist, the deploy skips itself instead of failing.
+
+name: Deploy calendar feed
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - services/calendar-feed/**
+      - .github/workflows/deploy-calendar-feed.yml
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # lets GitHub prove to AWS who it is, so no AWS keys are stored
+  contents: read
+
+concurrency:
+  group: deploy-calendar-feed
+  cancel-in-progress: false
+
+env:
+  FUNCTION_NAME: grassroots-calendar-feed
+
+jobs:
+  deploy:
+    name: Deploy to AWS Lambda
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check the setup is done
+        id: ready
+        env:
+          ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          LAMBDA_ROLE: ${{ vars.AWS_LAMBDA_ROLE_ARN }}
+          URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$ROLE" ] || [ -z "$LAMBDA_ROLE" ] || [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "::notice::Skipped: finish the one-time AWS setup in infra/calendar-feed/README.md to turn on deploys."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v5
+        if: steps.ready.outputs.go == 'true'
+
+      - uses: actions/setup-dotnet@v5
+        if: steps.ready.outputs.go == 'true'
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Test
+        if: steps.ready.outputs.go == 'true'
+        working-directory: services/calendar-feed
+        run: dotnet test CalendarFeed.slnx -c Release
+
+      # arm64 = AWS Graviton: about 20% cheaper than x86 for the same work
+      - name: Build the Lambda package
+        if: steps.ready.outputs.go == 'true'
+        working-directory: services/calendar-feed
+        run: |
+          dotnet publish src/CalendarFeed -c Release -r linux-arm64 --self-contained false -o publish
+          cd publish && zip -qr ../function.zip . && cd ..
+          ls -lh function.zip
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: steps.ready.outputs.go == 'true'
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Create or update the function
+        if: steps.ready.outputs.go == 'true'
+        working-directory: services/calendar-feed
+        env:
+          LAMBDA_ROLE: ${{ vars.AWS_LAMBDA_ROLE_ARN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          # Settings go in a file so the secret key never appears on a command line
+          python3 - <<'PY' > env.json
+          import json, os
+          print(json.dumps({"Variables": {
+              "SUPABASE_URL": os.environ["SUPABASE_URL"],
+              "SUPABASE_SERVICE_ROLE_KEY": os.environ["SUPABASE_SERVICE_ROLE_KEY"],
+          }}))
+          PY
+
+          if aws lambda get-function --function-name "$FUNCTION_NAME" > /dev/null 2>&1; then
+            echo "Updating $FUNCTION_NAME"
+            aws lambda update-function-code --function-name "$FUNCTION_NAME" \
+              --zip-file fileb://function.zip --output text --query LastUpdateStatus
+            aws lambda wait function-updated-v2 --function-name "$FUNCTION_NAME"
+            aws lambda update-function-configuration --function-name "$FUNCTION_NAME" \
+              --environment file://env.json --output text --query LastUpdateStatus
+            aws lambda wait function-updated-v2 --function-name "$FUNCTION_NAME"
+          else
+            echo "Creating $FUNCTION_NAME"
+            aws lambda create-function --function-name "$FUNCTION_NAME" \
+              --runtime dotnet10 --architectures arm64 \
+              --handler CalendarFeed \
+              --role "$LAMBDA_ROLE" \
+              --memory-size 512 --timeout 20 \
+              --environment file://env.json \
+              --zip-file fileb://function.zip \
+              --output text --query State
+            aws lambda wait function-active-v2 --function-name "$FUNCTION_NAME"
+          fi
+          rm -f env.json
+
+      - name: Make sure it has a public URL
+        if: steps.ready.outputs.go == 'true'
+        id: url
+        run: |
+          set -euo pipefail
+          if ! aws lambda get-function-url-config --function-name "$FUNCTION_NAME" > /dev/null 2>&1; then
+            aws lambda create-function-url-config --function-name "$FUNCTION_NAME" --auth-type NONE > /dev/null
+            # Anyone with the URL may call it; the 64-character calendar link is what protects each feed
+            aws lambda add-permission --function-name "$FUNCTION_NAME" \
+              --statement-id public-url --action lambda:InvokeFunctionUrl \
+              --principal "*" --function-url-auth-type NONE > /dev/null
+            aws lambda add-permission --function-name "$FUNCTION_NAME" \
+              --statement-id public-url-invoke --action lambda:InvokeFunction \
+              --principal "*" --invoked-via-function-url > /dev/null \
+              || echo "::warning::Couldn't add the second URL permission; if the URL answers 403, see infra/calendar-feed/README.md"
+          fi
+          url=$(aws lambda get-function-url-config --function-name "$FUNCTION_NAME" --query FunctionUrl --output text)
+          echo "url=${url%/}" >> "$GITHUB_OUTPUT"
+
+      - name: Check it answers
+        if: steps.ready.outputs.go == 'true'
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if [ "$(curl -s --max-time 20 "${{ steps.url.outputs.url }}/health")" = "ok" ]; then
+              echo "Live: ${{ steps.url.outputs.url }}"
+              {
+                echo "### Calendar feed is live"
+                echo
+                echo "Base URL: \`${{ steps.url.outputs.url }}\`"
+                echo
+                echo "Put this in the app's \`.env\` as \`EXPO_PUBLIC_CALENDAR_FEED_URL\`."
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Not answering yet, waiting..."; sleep 10
+          done
+          echo "::error::The function was deployed but /health didn't answer 'ok'. Check its logs in CloudWatch."
+          exit 1

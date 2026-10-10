@@ -4,8 +4,10 @@
 //   GET /health             "ok", for hosting platforms to check the service is up
 //
 // Run it:  dotnet run --project src/CalendarFeed   (then open http://localhost:5080/health)
+// Online it runs in AWS Lambda behind a Function URL (see infra/README.md).
 
 using System.Threading.RateLimiting;
+using Amazon.Lambda.AspNetCoreServer.Hosting;
 using CalendarFeed.Config;
 using CalendarFeed.Feeds;
 using CalendarFeed.Supabase;
@@ -13,6 +15,11 @@ using CalendarFeed.Supabase;
 var builder = WebApplication.CreateBuilder(args);
 
 var settings = Settings.Load(builder.Environment.ContentRootPath);
+
+// In AWS Lambda, requests arrive as Lambda events instead of over a normal web port.
+// This translates them, so the routes below work unchanged. On your PC it's skipped.
+// (Function URLs send the same event format as an API Gateway HTTP API.)
+builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
 
 builder.Services.AddHttpClient<IFeedSource, SupabaseFeedSource>(http =>
 {
