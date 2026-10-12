@@ -91,3 +91,35 @@ jobs:
       # The same package the deploy uploads to AWS Lambda, so packaging problems show up here first
       - name: Build the Lambda package
         run: dotnet publish src/CalendarFeed -c Release -r linux-arm64 --self-contained false -o publish
+
+  cpp:
+    name: C++ teams solver (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux with GCC, plus AddressSanitizer and UndefinedBehaviorSanitizer: they stop the
+          # tests on memory mistakes (reading past the end of a vector, use after free) and on
+          # undefined behavior that might otherwise "work" by luck.
+          - name: Linux, GCC + sanitizers
+            os: ubuntu-latest
+            configure: -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-sanitize-recover=all"
+          # Windows with Visual Studio's compiler, the same one your PC would use
+          - name: Windows, MSVC
+            os: windows-latest
+            configure: ""
+    defaults:
+      run:
+        working-directory: services/teams-solver
+    steps:
+      - uses: actions/checkout@v5
+      - name: Configure
+        run: cmake -S . -B build ${{ matrix.configure }}
+      - name: Build (warnings count as errors)
+        run: cmake --build build --config Release
+      - name: Run tests
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Show a sample split
+        run: ctest --test-dir build -C Release -R example-runs -V

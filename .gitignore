@@ -27,3 +27,6 @@ services/python/out/
 # C# build output (services/calendar-feed)
 bin/
 obj/
+
+# C++ build output (services/teams-solver)
+services/teams-solver/build*/
