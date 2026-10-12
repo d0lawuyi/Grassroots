@@ -18,6 +18,13 @@ Parameters:
     Type: String
     Default: d0lawuyi/Grassroots
     Description: owner/repo allowed to deploy
+  GitHubRepoWithIds:
+    Type: String
+    Default: d0lawuyi@156848840/Grassroots@1358602589
+    Description: >-
+      The same repo as owner@ownerId/repo@repoId. GitHub now puts these numeric ids in the
+      token's subject; they never change, even if the account or repo is renamed. Shown by
+      the deploy's "Show the identity sent to AWS" step.
   FunctionName:
     Type: String
     Default: grassroots-calendar-feed
@@ -84,7 +91,10 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepo}:ref:refs/heads/main
+                # Either subject format, main branch only
+                token.actions.githubusercontent.com:sub:
+                  - !Sub repo:${GitHubRepo}:ref:refs/heads/main
+                  - !Sub repo:${GitHubRepoWithIds}:ref:refs/heads/main
       Policies:
         - PolicyName: deploy-calendar-feed-only
           PolicyDocument:
