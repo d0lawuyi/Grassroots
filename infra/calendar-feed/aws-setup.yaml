@@ -9,6 +9,7 @@
 #   DeployRole   what GitHub Actions may do: update this one function, from the main branch
 #                of this one repository, with no stored AWS keys (OpenID Connect)
 #   LogGroup     the function's logs, kept 14 days so they don't pile up
+#   DeployUser   fallback for GitHub Actions if OIDC sign-in fails: same limits, keys you create
 
 AWSTemplateFormatVersion: "2010-09-09"
 Description: Grassroots calendar feed - roles for Lambda and for GitHub Actions deploys
@@ -95,31 +96,46 @@ Resources:
                 token.actions.githubusercontent.com:sub:
                   - !Sub repo:${GitHubRepo}:ref:refs/heads/main
                   - !Sub repo:${GitHubRepoWithIds}:ref:refs/heads/main
-      Policies:
-        - PolicyName: deploy-calendar-feed-only
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Sid: ThisFunctionOnly
-                Effect: Allow
-                Action:
-                  - lambda:GetFunction
-                  - lambda:GetFunctionConfiguration
-                  - lambda:CreateFunction
-                  - lambda:UpdateFunctionCode
-                  - lambda:UpdateFunctionConfiguration
-                  - lambda:GetFunctionUrlConfig
-                  - lambda:CreateFunctionUrlConfig
-                  - lambda:GetPolicy
-                  - lambda:AddPermission
-                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FunctionName}
-              - Sid: HandTheFunctionItsRole
-                Effect: Allow
-                Action: iam:PassRole
-                Resource: !GetAtt LambdaRole.Arn
-                Condition:
-                  StringEquals:
-                    iam:PassedToService: lambda.amazonaws.com
+      ManagedPolicyArns:
+        - !Ref DeployPolicy
+
+  # What a deploy may do, shared by the GitHub role (OIDC) and the fallback deploy user
+  DeployPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Deploy the Grassroots calendar feed function and nothing else
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ThisFunctionOnly
+            Effect: Allow
+            Action:
+              - lambda:GetFunction
+              - lambda:GetFunctionConfiguration
+              - lambda:CreateFunction
+              - lambda:UpdateFunctionCode
+              - lambda:UpdateFunctionConfiguration
+              - lambda:GetFunctionUrlConfig
+              - lambda:CreateFunctionUrlConfig
+              - lambda:GetPolicy
+              - lambda:AddPermission
+            Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FunctionName}
+          - Sid: HandTheFunctionItsRole
+            Effect: Allow
+            Action: iam:PassRole
+            Resource: !GetAtt LambdaRole.Arn
+            Condition:
+              StringEquals:
+                iam:PassedToService: lambda.amazonaws.com
+
+  # Fallback for accounts where GitHub's OIDC sign-in can't be validated: a user with the
+  # same narrow permissions. It has no keys until you create one in the console
+  # (IAM > Users > this user > Security credentials > Create access key).
+  DeployUser:
+    Type: AWS::IAM::User
+    Properties:
+      ManagedPolicyArns:
+        - !Ref DeployPolicy
 
 Outputs:
   AwsRegion:
@@ -131,3 +147,6 @@ Outputs:
   LambdaRoleArn:
     Description: GitHub repository variable AWS_LAMBDA_ROLE_ARN
     Value: !GetAtt LambdaRole.Arn
+  DeployUserName:
+    Description: Fallback only - create an access key for this user if the OIDC sign-in fails
+    Value: !Ref DeployUser
