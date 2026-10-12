@@ -97,6 +97,7 @@ only after the tests pass.
 |---|---|
 | The deploy run says "Skipped: finish the one-time AWS setup" | One of the three variables or two secrets is missing or misspelled. |
 | "Not authorized to perform sts:AssumeRoleWithWebIdentity" | The run wasn't on `main`, or `AWS_DEPLOY_ROLE_ARN` has a typo. |
+| "The web identity token provided could not be validated" | GitHub's subject format didn't match the role's trust rule. Open the deploy's **Show the identity sent to AWS** step: the `sub` line must match one of the two forms the template allows. If the repo moved or the ids differ, update the stack's `GitHubRepoWithIds` parameter (CloudFormation > the stack > **Update**). |
 | `/health` answers `403 Forbidden` | Lambda > `grassroots-calendar-feed` > **Configuration > Permissions > Resource-based policy statements > Add permissions** > **Function URL**, Auth type **NONE**. Save, then add a second one: **AWS account**, Principal `*`, Action `lambda:InvokeFunction`. |
 | `/health` answers `500` | Lambda > the function > **Monitor > View CloudWatch logs**. A message about `SUPABASE_` means a secret is missing. |
 | Calendar never updates | Calendar apps decide when to check; Apple's default can be hourly or longer. On iPhone, the refresh setting is under the Calendar settings, in Accounts > Fetch New Data. |
