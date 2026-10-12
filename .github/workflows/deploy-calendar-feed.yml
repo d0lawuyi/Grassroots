@@ -6,6 +6,8 @@
 #
 # One-time setup (infra/calendar-feed/README.md walks through it):
 #   repository variables  AWS_REGION, AWS_DEPLOY_ROLE_ARN, AWS_LAMBDA_ROLE_ARN
+#   fallback (optional)   secrets AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY for the stack's deploy user;
+#                         when both are set they're used instead of OIDC
 #   repository secrets    SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (the same ones the scheduled tools use)
 # Until the variables exist, the deploy skips itself instead of failing.
 
@@ -35,6 +37,9 @@ jobs:
     name: Deploy to AWS Lambda
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # Sign-in method: an access key if one is saved (fallback), otherwise OIDC
+      USE_KEYS: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' }}
     steps:
       - name: Check the setup is done
         id: ready
@@ -44,7 +49,7 @@ jobs:
           URL: ${{ secrets.SUPABASE_URL }}
           KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          if [ -z "$ROLE" ] || [ -z "$LAMBDA_ROLE" ] || [ -z "$URL" ] || [ -z "$KEY" ]; then
+          if { [ -z "$ROLE" ] && [ "$USE_KEYS" != "true" ]; } || [ -z "$LAMBDA_ROLE" ] || [ -z "$URL" ] || [ -z "$KEY" ]; then
             echo "::notice::Skipped: finish the one-time AWS setup in infra/calendar-feed/README.md to turn on deploys."
             echo "go=false" >> "$GITHUB_OUTPUT"
           else
@@ -77,7 +82,7 @@ jobs:
       # problem with AWS can be matched against the role's trust rules. The token
       # itself is never printed.
       - name: Show the identity sent to AWS
-        if: steps.ready.outputs.go == 'true'
+        if: steps.ready.outputs.go == 'true' && env.USE_KEYS != 'true'
         env:
           ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           REGION: ${{ vars.AWS_REGION }}
@@ -94,10 +99,19 @@ jobs:
             *) echo "::error::AWS_DEPLOY_ROLE_ARN doesn't look like a role ARN. It should be one line starting arn:aws:iam::"; exit 1 ;;
           esac
 
-      - uses: aws-actions/configure-aws-credentials@v5
-        if: steps.ready.outputs.go == 'true'
+      - name: Sign in to AWS (OIDC, no stored keys)
+        uses: aws-actions/configure-aws-credentials@v5
+        if: steps.ready.outputs.go == 'true' && env.USE_KEYS != 'true'
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Sign in to AWS (deploy user access key)
+        uses: aws-actions/configure-aws-credentials@v5
+        if: steps.ready.outputs.go == 'true' && env.USE_KEYS == 'true'
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Create or update the function

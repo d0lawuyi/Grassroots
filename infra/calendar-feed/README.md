@@ -102,5 +102,28 @@ only after the tests pass.
 | `/health` answers `500` | Lambda > the function > **Monitor > View CloudWatch logs**. A message about `SUPABASE_` means a secret is missing. |
 | Calendar never updates | Calendar apps decide when to check; Apple's default can be hourly or longer. On iPhone, the refresh setting is under the Calendar settings, in Accounts > Fetch New Data. |
 
+---
+
+## Fallback: deploy with an access key
+
+If the deploy keeps failing at **Sign in to AWS (OIDC)** with "The web identity token provided
+could not be validated" even though the identity step's `sub` matches, some AWS accounts
+won't validate GitHub's sign-in. The stack includes a fallback user, `DeployUser`, with
+exactly the same narrow permissions as the deploy role.
+
+1. CloudFormation > your stack > **Outputs**: note **DeployUserName**.
+2. **IAM > Users >** that user **> Security credentials > Create access key**. Pick
+   **Application running outside AWS**, then **Next**, **Create access key**. Keep the page
+   open: the secret is shown only once.
+3. GitHub > Settings > Secrets and variables > Actions > **Secrets** tab, two new secrets:
+   `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, with the two values from that page.
+4. Run **Deploy calendar feed** again. When both secrets exist it signs in with them
+   (step **Sign in to AWS (deploy user access key)**) instead of OIDC.
+
+The key can only update the one calendar function. If it ever leaks, delete it in IAM
+and create a new one. Delete both secrets to go back to OIDC later.
+
+---
+
 To remove everything: delete the Lambda function `grassroots-calendar-feed`, then delete the
 `grassroots-calendar-feed` stack in CloudFormation.
