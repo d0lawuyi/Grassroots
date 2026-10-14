@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { scheduleGameReminders, cancelGameReminders } from '../lib/notifications';
 import { formatGameTime, formatSport, sportEmoji } from '../utils/format';
 import { COLORS } from '../theme/colors';
+import TeamsCard from '../components/TeamsCard';
 
 const TONES = [
   'rgba(23,32,25,0.30)',
@@ -421,6 +422,9 @@ export default function GameDetailsScreen({ game, park, userId, onClose }) {
             </View>
           )}
         </View>
+
+        {/* ---- TEAMS: balanced by the C++ solver ---- */}
+        {!loadingRoster && <TeamsCard game={game} players={players} userId={userId} />}
       </ScrollView>
 
       <View style={styles.footer}>

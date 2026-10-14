@@ -1,16 +1,23 @@
-# Grassroots calendar feed (C#)
+# Grassroots API: calendar feed and balanced teams (C#)
 
-A small web service that gives each venue owner a private calendar link. They add it to
-Apple Calendar, Google Calendar or Outlook once, and every game booked at their venues
-shows up there by itself, with the time, the organizer and how many players have joined.
-Calendar apps check the link for changes about once an hour.
+A small web service with two jobs:
+
+1. **Calendar feed.** Each venue owner gets a private calendar link. They add it to Apple
+   Calendar, Google Calendar or Outlook once, and every game booked at their venues shows
+   up there by itself, with the time, the organizer and how many players have joined.
+   Calendar apps check the link for changes about once an hour.
+2. **Balanced teams.** The organizer taps **Make teams** on the game page. The service checks
+   they really are the organizer, loads the players and their levels, runs the C++ solver
+   (`services/teams-solver`) and saves the teams for everyone to see.
 
 ```
-GET /feeds/{link}.ics   the owner's games, in iCalendar format
-GET /health             "ok"
+GET  /feeds/{link}.ics        the owner's games, in iCalendar format
+POST /games/{id}/teams        body {"teams": 2}; header Authorization: Bearer <app sign-in token>
+GET  /health                  "ok"
 ```
 
-Built with ASP.NET Core on .NET 10. No extra packages: only what comes with .NET.
+Built with ASP.NET Core on .NET 10. The only extra package is the one that lets it run in
+AWS Lambda.
 
 ---
 
@@ -79,6 +86,29 @@ services/calendar-feed/
 The same split as the Python tools: `FeedBuilder` decides what the calendar says and is easy
 to test; `SupabaseFeedSource` fetches the data around it. `IFeedSource` is an interface, so
 the real Supabase reader and a fake one in a test are interchangeable.
+
+## Balanced teams: how C# and C++ work together
+
+```
+App ──POST /games/{id}/teams──> TeamsService (C#)
+                                  1. Supabase Auth: whose sign-in token is this?
+                                  2. Supabase: the game's organizer, players, levels
+                                  3. balance-teams (C++): CSV in, JSON out
+                                  4. Supabase: save game_teams
+```
+
+`Teams/ProcessTeamSolver.cs` runs the C++ program as a separate process: it writes the
+players to the program's standard input as CSV and reads the teams back as JSON. The two
+languages only share text, which keeps them independent. Player ids go in instead of
+names, so no personal details leave the service.
+
+To try it locally, build the solver first (`services/teams-solver/README.md`). The service
+finds it in `services/teams-solver/build` and logs `Teams solver: …` when it starts. On AWS,
+the deploy builds an arm64 copy and ships it next to the service.
+
+The tests use a fake Supabase and a fake solver (`TeamsTests.cs`), so every rule (only the
+organizer, enough players, 2 to 4 teams) is checked without a network. One test runs the
+real C++ program when it's built.
 
 ## Security
 
