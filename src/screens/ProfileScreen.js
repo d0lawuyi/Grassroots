@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
+import { FONTS } from '../theme/fonts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CalendarLinkRow from '../components/CalendarLinkRow';
 import SkillLevelPicker from '../components/SkillLevelPicker';
@@ -244,7 +245,8 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
           <Text style={styles.headerTitle}>Profile</Text>
           <TouchableOpacity
             onPress={() => (editing ? saveProfile() : setEditing(true))}
-            style={editing ? styles.saveBtn : null}
+            style={editing ? styles.saveBtn : styles.editPill}
+            accessibilityLabel={editing ? 'Save profile' : 'Edit profile'}
           >
             <Text style={editing ? styles.saveBtnText : styles.editLink}>
               {editing ? 'Save' : 'Edit'}
@@ -267,7 +269,7 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
               </View>
             )}
             <View style={styles.cameraBadge}>
-              <Ionicons name="camera" size={13} color={COLORS.ink} />
+              <Ionicons name="camera" size={13} color={COLORS.forest} />
             </View>
           </TouchableOpacity>
 
@@ -277,7 +279,7 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
               value={form.full_name}
               onChangeText={(t) => setForm({ ...form, full_name: t })}
               placeholder="Your name"
-              placeholderTextColor={COLORS.neutral400}
+              placeholderTextColor="rgba(255,253,248,0.5)"
             />
           ) : (
             <Text style={styles.name}>{profile?.full_name || 'Player'}</Text>
@@ -291,7 +293,7 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
                   rating >= i ? 'star' : rating >= i - 0.5 ? 'star-half' : 'star-outline'
                 }
                 size={17}
-                color={rating >= i - 0.5 ? COLORS.primary : COLORS.neutral300}
+                color={rating >= i - 0.5 ? COLORS.sage : 'rgba(255,253,248,0.35)'}
               />
             ))}
             <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
@@ -299,26 +301,38 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
 
           {!editing && locationLine ? (
             <View style={styles.locationRow}>
-              <Ionicons name="location-outline" size={14} color={COLORS.mute} />
+              <Ionicons name="location-outline" size={14} color={CREAM_SOFT} />
               <Text style={styles.locationText}>{locationLine}</Text>
             </View>
           ) : null}
 
           {!editing && originLine ? (
             <View style={styles.locationRow}>
-              <Ionicons name="home-outline" size={14} color={COLORS.mute} />
+              <Ionicons name="home-outline" size={14} color={CREAM_SOFT} />
               <Text style={styles.locationText}>From {originLine}</Text>
             </View>
           ) : null}
+
+          {/* Played / Hosted / Badges, inside the card */}
+          <View style={styles.statsStrip}>
+            {[
+              { n: stats.played, label: 'Played' },
+              { n: stats.organized, label: 'Hosted' },
+              { n: badges.length, label: 'Badges' },
+            ].map((st, i) => (
+              <View key={st.label} style={[styles.stat, i > 0 && styles.statDivider]}>
+                <Text style={styles.statNumber}>{st.n}</Text>
+                <Text style={styles.statLabel}>{st.label}</Text>
+              </View>
+            ))}
+          </View>
         </View>
 
         {/* ---- RELIABILITY ---- */}
         <View style={styles.card}>
           <View style={styles.cardHead}>
-            <Text style={styles.cardTitle}>YOUR RECORD</Text>
-            {joinedLabel && (
-              <Text style={styles.cardCount}>SINCE {joinedLabel.toUpperCase()}</Text>
-            )}
+            <Text style={styles.cardHeading}>Your record</Text>
+            {joinedLabel && <Text style={styles.cardCount}>Since {joinedLabel}</Text>}
           </View>
 
           {hasHistory ? (
@@ -331,18 +345,6 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
               </Text>
 
               <View style={styles.rule} />
-
-              <View style={styles.recordRow}>
-                <Ionicons name="football" size={14} color={COLORS.primary} />
-                <Text style={styles.recordKey}>Games played</Text>
-                <Text style={styles.recordVal}>{stats.played}</Text>
-              </View>
-
-              <View style={styles.recordRow}>
-                <Ionicons name="megaphone" size={14} color={COLORS.primary} />
-                <Text style={styles.recordKey}>Games hosted</Text>
-                <Text style={styles.recordVal}>{stats.organized}</Text>
-              </View>
 
               <View style={styles.recordRow}>
                 <Ionicons name="star" size={14} color={COLORS.primary} />
@@ -424,26 +426,10 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
           </View>
         )}
 
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{stats.played}</Text>
-            <Text style={styles.statLabel}>PLAYED</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{stats.organized}</Text>
-            <Text style={styles.statLabel}>HOSTED</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{badges.length}</Text>
-            <Text style={styles.statLabel}>BADGES</Text>
-          </View>
-        </View>
-
         {/* Badges */}
         <View style={styles.card}>
           <View style={styles.cardHead}>
-            <Text style={styles.cardTitle}>BADGES</Text>
+            <Text style={styles.cardHeading}>Badges</Text>
             <Text style={styles.cardCount}>
               {badges.length} of {allBadges.length}
             </Text>
@@ -461,7 +447,7 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
                     <Ionicons
                       name={badge.icon}
                       size={19}
-                      color={earned ? COLORS.ink : COLORS.neutral400}
+                      color={earned ? COLORS.white : COLORS.neutral400}
                     />
                   </View>
                   <Text style={[styles.badgeName, !earned && styles.badgeNameLocked]}>
@@ -476,15 +462,18 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
           </View>
         </View>
 
+        {/* SETTINGS: your level, celebrations and The Sideline */}
+        <Text style={styles.groupTitle}>Settings</Text>
+
         {/* YOUR LEVEL: used to balance teams (services/teams-solver) */}
-        <View style={styles.venueSection}>
-          <Text style={styles.venueSectionTitle}>Your level</Text>
+        <View style={styles.settingBlock}>
+          <Text style={styles.settingTitle}>Your level</Text>
           <SkillLevelPicker value={profile?.skill_rating ?? null} onChange={saveSkill} />
         </View>
 
         {/* CELEBRATIONS: the animation and sounds after posting or joining a game */}
-        <View style={styles.venueSection}>
-          <Text style={styles.venueSectionTitle}>Celebrations</Text>
+        <View style={styles.settingBlock}>
+          <Text style={styles.settingTitle}>Celebrations</Text>
           <View style={styles.venueRow}>
             <Ionicons name="sparkles-outline" size={22} color={COLORS.primary} />
             <View style={{ flex: 1 }}>
@@ -517,8 +506,8 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
         </View>
 
         {/* THE SIDELINE: opt in to being featured in the weekly newsletter */}
-        <View style={styles.venueSection}>
-          <Text style={styles.venueSectionTitle}>The Sideline</Text>
+        <View style={styles.settingBlock}>
+          <Text style={styles.settingTitle}>The Sideline</Text>
           <View style={styles.venueRow}>
             <Ionicons name="newspaper-outline" size={22} color={COLORS.primary} />
             <View style={{ flex: 1 }}>
@@ -538,8 +527,8 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
         </View>
 
         {/* VENUES */}
-        <View style={styles.venueSection}>
-          <Text style={styles.venueSectionTitle}>Venues</Text>
+        <View>
+          <Text style={styles.groupTitle}>Venues</Text>
           <TouchableOpacity style={styles.venueRow} onPress={onOpenListVenue} activeOpacity={0.85}>
             <Ionicons name="business-outline" size={22} color={COLORS.primary} />
             <View style={{ flex: 1 }}>
@@ -576,13 +565,17 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={styles.signOut} onPress={() => supabase.auth.signOut()}>
+        <TouchableOpacity style={styles.signOut} onPress={() => supabase.auth.signOut()} hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}>
           <Text style={styles.signOutText}>Sign out</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
   );
 }
+
+/* Text on the forest-green identity card */
+const CREAM = COLORS.white; // #FFFDF8
+const CREAM_SOFT = 'rgba(255,253,248,0.72)';
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.ink },
@@ -593,43 +586,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: 20,
   },
-  headerTitle: {
-    fontSize: 32, fontWeight: '800', color: COLORS.snow, letterSpacing: -1.2,
+  headerTitle: { fontFamily: FONTS.display, fontSize: 32, lineHeight: 38, color: COLORS.snow, letterSpacing: -0.4 },
+  editPill: {
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 18,
+    backgroundColor: COLORS.cardFill, borderWidth: 1, borderColor: COLORS.line,
   },
-  editLink: { fontSize: 15, fontWeight: '700', color: COLORS.primary },
-  saveBtn: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 18, paddingVertical: 9, borderRadius: 11,
-  },
-  saveBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.ink },
+  editLink: { fontSize: 14, fontWeight: '800', color: COLORS.primary },
+  saveBtn: { backgroundColor: COLORS.primary, paddingHorizontal: 18, paddingVertical: 8, borderRadius: 18 },
+  saveBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.white },
 
   identityCard: {
-    alignItems: 'center', backgroundColor: COLORS.cardFill,
-    borderRadius: 22, padding: 24, borderWidth: 1, borderColor: COLORS.line,
+    alignItems: 'center', backgroundColor: COLORS.forest, borderRadius: 24, padding: 22,
+    shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 5,
   },
   avatarWrap: { marginBottom: 14 },
   avatar: {
-    width: 92, height: 92, borderRadius: 46, backgroundColor: COLORS.primaryLight,
+    width: 92, height: 92, borderRadius: 46, backgroundColor: COLORS.sage,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
-  avatarInitials: { fontSize: 30, fontWeight: '800', color: COLORS.primary },
+  avatarInitials: { fontFamily: FONTS.display, fontSize: 32, color: COLORS.forest },
   cameraBadge: {
     position: 'absolute', bottom: 0, right: 0,
-    width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.primary,
+    width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.sage,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2.5, borderColor: COLORS.ink,
+    borderWidth: 2.5, borderColor: COLORS.forest,
   },
-  name: { fontSize: 22, fontWeight: '800', color: COLORS.snow, letterSpacing: -0.5 },
+  name: { fontFamily: FONTS.display, fontSize: 26, lineHeight: 31, color: CREAM },
   nameInput: {
-    fontSize: 22, fontWeight: '800', color: COLORS.snow, textAlign: 'center',
-    borderBottomWidth: 1, borderBottomColor: COLORS.primary,
-    paddingVertical: 4, minWidth: 180,
+    fontSize: 22, fontWeight: '800', color: CREAM, textAlign: 'center',
+    borderBottomWidth: 1, borderBottomColor: COLORS.sage, paddingVertical: 4, minWidth: 180,
   },
 
   starRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 10 },
-  ratingText: { fontSize: 14, fontWeight: '800', color: COLORS.snow, marginLeft: 7 },
+  ratingText: { fontSize: 14, fontWeight: '800', color: CREAM, marginLeft: 7 },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 9 },
-  locationText: { fontSize: 13, color: COLORS.mute, fontWeight: '500' },
+  locationText: { fontSize: 13, color: CREAM_SOFT, fontWeight: '500' },
 
   card: {
     backgroundColor: COLORS.cardFill, borderRadius: 22, padding: 18,
@@ -639,13 +630,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: 14,
   },
+  cardHeading: { fontFamily: FONTS.displaySemi, fontSize: 20, color: COLORS.snow },
+
+  statsStrip: {
+    flexDirection: 'row', alignSelf: 'stretch', marginTop: 18, paddingTop: 14,
+    borderTopWidth: 1, borderTopColor: 'rgba(255,253,248,0.18)',
+  },
+  stat: { flex: 1, alignItems: 'center' },
+  statDivider: { borderLeftWidth: 1, borderLeftColor: 'rgba(255,253,248,0.18)' },
+  statNumber: { fontFamily: FONTS.display, fontSize: 24, lineHeight: 28, color: CREAM },
+  statLabel: { fontSize: 11.5, color: CREAM_SOFT, marginTop: 2, fontWeight: '700' },
+
+  groupTitle: { fontFamily: FONTS.displaySemi, color: COLORS.snow, fontSize: 22, marginTop: 30, marginBottom: 4 },
+  settingBlock: { marginTop: 12 },
+  settingTitle: {
+    color: COLORS.mute, fontSize: 12, fontWeight: '800', letterSpacing: 1.2,
+    textTransform: 'uppercase', marginBottom: 8,
+  },
+
   cardTitle: {
     fontSize: 10.5, fontWeight: '800', color: COLORS.primary,
     letterSpacing: 2, marginBottom: 12,
   },
   cardCount: {
-    fontSize: 10.5, fontWeight: '800', color: COLORS.mute,
-    letterSpacing: 1.2, marginBottom: 12,
+    fontSize: 11.5, fontWeight: '800', color: COLORS.primary, backgroundColor: COLORS.sage,
+    paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10, overflow: 'hidden',
   },
 
   /* reliability */
@@ -678,23 +687,13 @@ const styles = StyleSheet.create({
     fontSize: 15, color: COLORS.snow, borderWidth: 1, borderColor: COLORS.line,
   },
 
-  statsRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  statCard: {
-    flex: 1, alignItems: 'center', backgroundColor: COLORS.cardFill,
-    borderRadius: 18, paddingVertical: 18, borderWidth: 1, borderColor: COLORS.line,
-  },
-  statNumber: { fontSize: 26, fontWeight: '800', color: COLORS.primary, letterSpacing: -1 },
-  statLabel: {
-    fontSize: 9.5, color: COLORS.mute, marginTop: 5,
-    fontWeight: '800', letterSpacing: 1.4,
-  },
 
   badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   badge: {
     width: '47%', backgroundColor: COLORS.paleGreen, borderRadius: 15, padding: 12,
     borderWidth: 1, borderColor: 'rgba(23,68,47,0.22)',
   },
-  badgeLocked: { backgroundColor: 'rgba(0,0,0,0.25)', borderColor: COLORS.line },
+  badgeLocked: { backgroundColor: 'rgba(23,32,25,0.05)', borderColor: COLORS.line },
   badgeIcon: {
     width: 36, height: 36, borderRadius: 12, backgroundColor: COLORS.primary,
     alignItems: 'center', justifyContent: 'center', marginBottom: 9,
@@ -704,14 +703,9 @@ const styles = StyleSheet.create({
   badgeNameLocked: { color: COLORS.neutral500 },
   badgeDesc: { fontSize: 11, color: COLORS.mute, marginTop: 3, lineHeight: 15 },
 
-  signOut: {
-    alignItems: 'center', marginTop: 26, paddingVertical: 15,
-    borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,107,107,0.25)',
-  },
+  signOut: { alignSelf: 'center', marginTop: 28, paddingVertical: 10 },
   signOutText: { color: COLORS.danger, fontWeight: '700', fontSize: 15 },
 
-  venueSection: { marginTop: 26 },
-  venueSectionTitle: { color: COLORS.snow, fontSize: 18, fontWeight: '800', marginBottom: 10 },
   venueRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12, padding: 15, marginBottom: 10,
     borderRadius: 16, borderWidth: 1, borderColor: COLORS.line, backgroundColor: COLORS.cardFill,
