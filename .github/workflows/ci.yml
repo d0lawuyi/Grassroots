@@ -84,6 +84,13 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
+      # The teams endpoint runs the C++ solver, so build it first for the end-to-end test
+      - name: Build the C++ teams solver
+        working-directory: services/teams-solver
+        run: |
+          cmake -S . -B build
+          cmake --build build --target balance-teams
+          echo "TEAMS_SOLVER_PATH=$PWD/build/balance-teams" >> "$GITHUB_ENV"
       - name: Build (warnings count as errors)
         run: dotnet build CalendarFeed.slnx -c Release
       - name: Run tests
@@ -123,3 +130,17 @@ jobs:
         run: ctest --test-dir build -C Release --output-on-failure
       - name: Show a sample split
         run: ctest --test-dir build -C Release -R example-runs -V
+      # The same arm64 build the AWS deploy ships, run through an emulator, so a problem
+      # with it shows up on the pull request instead of during the deploy
+      - name: Build for AWS Lambda (arm64) and run it
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq g++-aarch64-linux-gnu qemu-user-static > /dev/null
+          cmake -S . -B build-arm64 \
+            -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DCMAKE_EXE_LINKER_FLAGS=-static
+          cmake --build build-arm64 --target balance-teams
+          file build-arm64/balance-teams
+          qemu-aarch64-static build-arm64/balance-teams examples/pickup.csv | tail -1 | grep "the best possible"

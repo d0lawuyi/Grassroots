@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CalendarLinkRow from '../components/CalendarLinkRow';
+import SkillLevelPicker from '../components/SkillLevelPicker';
 
 export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) {
   const [profile, setProfile] = useState(null);
@@ -30,6 +31,17 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
     const { error } = await supabase.from('users').update({ sideline_feature: on }).eq('user_id', userId);
     if (error) {
       setProfile((p) => ({ ...p, sideline_feature: !on }));
+      Alert.alert('Could not save', error.message);
+    }
+  }
+
+  // Saves "Your level" (1-5) the same way: show it right away, put it back if saving fails.
+  async function saveSkill(level) {
+    const before = profile?.skill_rating ?? null;
+    setProfile((p) => ({ ...p, skill_rating: level }));
+    const { error } = await supabase.from('users').update({ skill_rating: level }).eq('user_id', userId);
+    if (error) {
+      setProfile((p) => ({ ...p, skill_rating: before }));
       Alert.alert('Could not save', error.message);
     }
   }
@@ -450,6 +462,12 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
               );
             })}
           </View>
+        </View>
+
+        {/* YOUR LEVEL: used to balance teams (services/teams-solver) */}
+        <View style={styles.venueSection}>
+          <Text style={styles.venueSectionTitle}>Your level</Text>
+          <SkillLevelPicker value={profile?.skill_rating ?? null} onChange={saveSkill} />
         </View>
 
         {/* THE SIDELINE: opt in to being featured in the weekly newsletter */}
