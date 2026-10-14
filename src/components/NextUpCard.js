@@ -2,12 +2,14 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
+import { FONTS } from '../theme/fonts';
 
+/* Avatar tints on the forest card: cream at different strengths */
 const TONES = [
-  'rgba(23,32,25,0.30)',
-  'rgba(23,32,25,0.22)',
-  'rgba(23,32,25,0.16)',
-  'rgba(23,32,25,0.11)',
+  'rgba(255,253,248,0.30)',
+  'rgba(255,253,248,0.22)',
+  'rgba(255,253,248,0.16)',
+  'rgba(255,253,248,0.11)',
 ];
 
 function countdown(startTime) {
@@ -46,12 +48,12 @@ export default function NextUpCard({ game, players = [], onOpen, onOpenChat, onD
 
       <View style={s.chipWrap}>
         <TouchableOpacity style={s.chip} onPress={onOpenChat} activeOpacity={0.8}>
-          <Ionicons name="chatbubble" size={11} color={COLORS.ink} />
+          <Ionicons name="chatbubble" size={11} color={COLORS.forest} />
           <Text style={s.chipText}>Group chat</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={s.chipGhost} onPress={onDirections} activeOpacity={0.8}>
-          <Ionicons name="navigate" size={11} color={COLORS.snow} />
+          <Ionicons name="navigate" size={11} color={COLORS.white} />
           <Text style={s.chipGhostText}>Directions</Text>
         </TouchableOpacity>
       </View>
@@ -71,7 +73,7 @@ export default function NextUpCard({ game, players = [], onOpen, onOpenChat, onD
               <View
                 style={[
                   s.face,
-                  { backgroundColor: isYou ? COLORS.primary : TONES[i % TONES.length] },
+                  { backgroundColor: isYou ? COLORS.sage : TONES[i % TONES.length] },
                 ]}
               >
                 <Text style={[s.faceText, isYou && s.faceTextYou]}>{initials}</Text>
@@ -86,7 +88,7 @@ export default function NextUpCard({ game, players = [], onOpen, onOpenChat, onD
         {open > 0 && (
           <View style={s.rosterItem}>
             <View style={[s.face, s.faceEmpty]}>
-              <Ionicons name="add" size={14} color={COLORS.mute} />
+              <Ionicons name="add" size={14} color="rgba(255,253,248,0.7)" />
             </View>
             <Text style={s.name}>{open} open</Text>
           </View>
@@ -96,80 +98,50 @@ export default function NextUpCard({ game, players = [], onOpen, onOpenChat, onD
   );
 }
 
+/* Clubhouse: the one forest-green card on the screen, so the next game stands out */
+const CREAM = COLORS.white; // #FFFDF8
+const CREAM_SOFT = 'rgba(255,253,248,0.72)';
+
 const s = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.cardFill,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: COLORS.line,
+    backgroundColor: COLORS.forest,
+    borderRadius: 24,
     padding: 18,
-    marginBottom: 20,
+    marginBottom: 16,
+    shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 5,
   },
 
-  head: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  bar: { width: 16, height: 2, backgroundColor: COLORS.primary, marginRight: 9 },
-  label: {
-    color: COLORS.primary,
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 2.4,
-  },
+  head: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  bar: { width: 16, height: 2, backgroundColor: COLORS.sage, marginRight: 9 },
+  label: { color: COLORS.sage, fontSize: 10.5, fontWeight: '800', letterSpacing: 2.4 },
   count: {
-    marginLeft: 'auto',
-    color: COLORS.mute,
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 1.2,
+    marginLeft: 'auto', color: COLORS.forest, backgroundColor: COLORS.sage,
+    fontSize: 10.5, fontWeight: '800', letterSpacing: 1.2,
+    paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10, overflow: 'hidden',
   },
 
-  title: {
-    color: COLORS.snow,
-    fontSize: 25,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-  },
-  sub: { color: COLORS.mute, fontSize: 13.5, marginTop: 5, fontWeight: '500' },
+  title: { fontFamily: FONTS.display, color: CREAM, fontSize: 26, lineHeight: 31 },
+  sub: { color: CREAM_SOFT, fontSize: 13.5, marginTop: 4, fontWeight: '500' },
 
-  chipWrap: { flexDirection: 'row', gap: 8, marginTop: 18 },
+  chipWrap: { flexDirection: 'row', gap: 8, marginTop: 16 },
   chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: COLORS.sage, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
   },
-  chipText: { color: COLORS.ink, fontSize: 12, fontWeight: '800' },
+  chipText: { color: COLORS.forest, fontSize: 12, fontWeight: '800' },
   chipGhost: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderWidth: 1,
-    borderColor: COLORS.line,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderWidth: 1, borderColor: 'rgba(255,253,248,0.35)',
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
   },
-  chipGhostText: { color: COLORS.snow, fontSize: 12, fontWeight: '700' },
+  chipGhostText: { color: CREAM, fontSize: 12, fontWeight: '700' },
 
-  roster: { flexDirection: 'row', marginTop: 22, gap: 18 },
+  roster: { flexDirection: 'row', marginTop: 20, gap: 16 },
   rosterItem: { alignItems: 'center' },
-  face: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  faceEmpty: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: COLORS.line,
-    borderStyle: 'dashed',
-  },
-  faceText: { fontSize: 12, fontWeight: '800', color: COLORS.snow },
-  faceTextYou: { color: COLORS.ink },
-  name: { color: COLORS.mute, fontSize: 11, marginTop: 7, fontWeight: '600' },
-  nameYou: { color: COLORS.snow, fontWeight: '800' },
+  face: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  faceEmpty: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: 'rgba(255,253,248,0.4)', borderStyle: 'dashed' },
+  faceText: { fontSize: 12, fontWeight: '800', color: CREAM },
+  faceTextYou: { color: COLORS.forest },
+  name: { color: CREAM_SOFT, fontSize: 11, marginTop: 7, fontWeight: '600' },
+  nameYou: { color: CREAM, fontWeight: '800' },
 });
