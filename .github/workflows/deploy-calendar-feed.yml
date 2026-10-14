@@ -67,6 +67,15 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      # The tests run the real C++ teams solver, so build a copy for this machine first
+      - name: Build the C++ teams solver for the tests
+        if: steps.ready.outputs.go == 'true'
+        working-directory: services/teams-solver
+        run: |
+          cmake -S . -B build
+          cmake --build build --target balance-teams
+          echo "TEAMS_SOLVER_PATH=$PWD/build/balance-teams" >> "$GITHUB_ENV"
+
       - name: Test
         if: steps.ready.outputs.go == 'true'
         working-directory: services/calendar-feed
