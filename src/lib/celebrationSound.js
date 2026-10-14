@@ -18,11 +18,13 @@ const SOURCES = {
 
 const players = {}; // one player per sound, made the first time it's needed
 let audioReady = null;
+let stopped = false; // set when a celebration ends, so a sound that's still starting stays quiet
 
 /* Respect the silent switch: on silent, the sounds don't play (the vibration still does). */
 export function prepareCelebrationAudio() {
   if (!audioReady) {
-    audioReady = setAudioModeAsync({ playsInSilentMode: false }).catch((e) => {
+    // mixWithOthers: a whistle shouldn't pause the music someone is listening to
+    audioReady = setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers' }).catch((e) => {
       console.warn('Could not set the audio mode', e);
     });
   }
@@ -36,6 +38,7 @@ function playSound(name) {
     const player = players[name];
     // Start from the beginning each time, even if it played a moment ago
     Promise.resolve(player.seekTo(0)).catch(() => {}).finally(() => {
+      if (stopped) return;
       try {
         player.play();
       } catch (e) {
@@ -44,6 +47,23 @@ function playSound(name) {
     });
   } catch (e) {
     console.warn(`Could not load ${name}`, e);
+  }
+}
+
+/* A celebration is starting: sounds may play again. */
+export function startCelebrationSounds() {
+  stopped = false;
+}
+
+/* A celebration ended or was skipped: silence anything still playing or about to start. */
+export function stopCelebrationSounds() {
+  stopped = true;
+  for (const player of Object.values(players)) {
+    try {
+      player.pause();
+    } catch (e) {
+      // already released; nothing to stop
+    }
   }
 }
 

@@ -542,7 +542,7 @@ export default function CreateGameScreen({ userId, onClose, initialParkId = null
         <TouchableOpacity
           style={[styles.postBtn, loading && { opacity: 0.6 }]}
           onPress={handlePostGame}
-          disabled={loading}
+          disabled={loading || !!celebrating} // saved already: no second post under the celebration
           activeOpacity={0.85}
         >
           {loading ? (

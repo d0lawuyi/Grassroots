@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { cancelAnimation, Easing, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SCENES } from './celebrations';
-import { playCue, prepareCelebrationAudio } from '../lib/celebrationSound';
+import {
+  playCue, prepareCelebrationAudio, startCelebrationSounds, stopCelebrationSounds,
+} from '../lib/celebrationSound';
 import {
   sceneFor, durationFor, STILL_MS, cuesFor, captionFor, playbackFor, cueSchedule, finishOnce,
 } from '../utils/celebration';
@@ -26,6 +28,7 @@ const HOLD_MS = 300; // keep the last frame up a moment so "+3" or "Good!" can b
 
 export default function Celebration({ sport, mode = 'created', isWeekly = false, title, subtitle, settings, onDone }) {
   const [reduceMotion, setReduceMotion] = useState(null); // null until the phone tells us
+  const [visible, setVisible] = useState(true);
   const progress = useSharedValue(0);
   const timers = useRef([]);
   const onDoneRef = useRef(onDone);
@@ -38,7 +41,12 @@ export default function Celebration({ sport, mode = 'created', isWeekly = false,
       timers.current.forEach(clearTimeout);
       timers.current = [];
       cancelAnimation(progress);
-      onDoneRef.current?.();
+      stopCelebrationSounds();
+      // Hide this popup first and only then tell the screen we're done. Closing the
+      // Create Game sheet while this popup is still showing on top of it misbehaves on
+      // iPhone, so there onDone waits for the popup's onDismiss.
+      setVisible(false);
+      if (Platform.OS !== 'ios') setTimeout(() => onDoneRef.current?.(), 0);
     });
   }
   const finish = finishRef.current;
@@ -58,6 +66,7 @@ export default function Celebration({ sport, mode = 'created', isWeekly = false,
       timers.current.forEach(clearTimeout);
       timers.current = [];
       cancelAnimation(progress);
+      stopCelebrationSounds();
     };
   }, []);
 
@@ -66,10 +75,13 @@ export default function Celebration({ sport, mode = 'created', isWeekly = false,
   useEffect(() => {
     if (!play) return;
     if (!play.show) {
-      finish();
+      onDoneRef.current?.(); // nothing was shown, so there is no popup to wait for
       return;
     }
-    if (play.sound) prepareCelebrationAudio();
+    if (play.sound) {
+      startCelebrationSounds();
+      prepareCelebrationAudio();
+    }
 
     const duration = durationFor(mode);
     let total;
@@ -86,12 +98,20 @@ export default function Celebration({ sport, mode = 'created', isWeekly = false,
       ...cues.map((cue) => setTimeout(() => playCue(cue), cue.delay)),
       setTimeout(finish, total),
     ];
+    // Runs once: reduceMotion is read once and settings don't change during a celebration.
   }, [play?.show, play?.animate]);
 
   if (!play || !play.show) return null;
 
   return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={finish}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={finish}
+      onDismiss={() => onDoneRef.current?.()} // iPhone only: the popup has finished closing
+    >
       <Pressable
         style={s.backdrop}
         onPress={finish}
