@@ -60,3 +60,13 @@ export function cueSchedule(cues, durationMs, { sound, haptic }) {
     .map((c) => ({ delay: Math.round(c.at * durationMs), ...(c.sound ? { sound: c.sound } : { haptic: true }) }))
     .sort((a, b) => a.delay - b.delay);
 }
+
+/* Wraps `fn` so only the first call runs: the end timer and a tap can't both close a screen. */
+export function finishOnce(fn) {
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    fn();
+  };
+}

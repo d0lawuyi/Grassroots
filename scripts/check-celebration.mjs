@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   sceneFor, durationFor, STILL_MS, cuesFor, SOUNDS, captionFor, playbackFor,
-  flagFromStorage, cueSchedule,
+  flagFromStorage, cueSchedule, finishOnce,
 } from '../src/utils/celebration.js';
 
 const SCENES = ['soccer', 'basketball', 'flag_football', 'track', 'ultimate', 'confetti'];
@@ -91,4 +91,13 @@ test('cue schedule turns fractions into delays and drops what is switched off', 
   assert.deepEqual(cueSchedule(cuesFor('soccer'), 2500, { sound: false, haptic: true }),
     [{ delay: 1375, haptic: true }]);
   assert.deepEqual(cueSchedule(cuesFor('soccer'), 2500, { sound: false, haptic: false }), []);
+});
+
+test('finishing runs once, even if the timer and a tap both fire', () => {
+  let calls = 0;
+  const finish = finishOnce(() => { calls += 1; });
+  finish();
+  finish();
+  finish();
+  assert.equal(calls, 1);
 });
