@@ -54,6 +54,19 @@ and tick **Desktop development with C++**.
 cmake --version
 ```
 
+If it says `cmake` is not recognized, see which Visual Studio tools are installed. This
+works in any PowerShell window:
+
+```
+& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -products * -property displayName
+```
+
+- Nothing printed, or "path not found": the Build Tools aren't installed yet. Run the
+  `winget` command in step 1 and wait for it to finish.
+- It prints **Visual Studio Build Tools 2022** but cmake still isn't found: the C++ part is
+  missing. Open **Visual Studio Installer**, click **Modify** next to Build Tools 2022, tick
+  **Desktop development with C++**, then **Modify**.
+
 **3. Build and test**, from the Grassroots folder:
 
 ```
@@ -64,16 +77,17 @@ ctest --test-dir build -C Release --output-on-failure
 ```
 
 You should see `100% tests passed`. To see each test by name, run
-`build\Release\teams-tests.exe`.
+`.\build\Release\teams-tests.exe`.
 
 **4. Try it:**
 
 ```
-build\Release\balance-teams.exe examples\pickup.csv
-build\Release\balance-teams.exe --teams 3 examples\pickup.csv
-build\Release\balance-teams.exe --json examples\pickup.csv
+.\build\Release\balance-teams.exe examples\pickup.csv
+.\build\Release\balance-teams.exe --teams 3 examples\pickup.csv
+.\build\Release\balance-teams.exe --json examples\pickup.csv
 ```
 
+PowerShell needs the `.\` at the start to run a program from the current folder.
 The `build` folder is ignored by git. Delete it any time to start a build from scratch.
 
 ## The players file
