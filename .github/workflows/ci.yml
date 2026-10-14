@@ -57,6 +57,10 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Run tests
         run: python -m unittest discover -s tests -t . -v
+      # The generated celebration sounds (scripts/make_sounds.py) are valid, short and not clipped
+      - name: Check celebration sounds
+        working-directory: .
+        run: python -m unittest scripts/test_make_sounds.py -v
 
   database:
     name: Database migrations and security rules
