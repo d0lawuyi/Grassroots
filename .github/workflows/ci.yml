@@ -29,6 +29,9 @@ jobs:
       # Rules for the venue page's time slots (src/utils/slots.js), in Indianapolis time
       - name: Check time-slot rules
         run: TZ=America/Indianapolis node --test scripts/check-slots.mjs
+      # Rules for the post/join celebrations (src/utils/celebration.js)
+      - name: Check celebration rules
+        run: node --test scripts/check-celebration.mjs
       # Builds the JavaScript bundle the phone downloads. A typo, a missing import or
       # a file that doesn't exist fails here instead of on your phone.
       - name: Build iOS bundle
@@ -54,6 +57,10 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Run tests
         run: python -m unittest discover -s tests -t . -v
+      # The generated celebration sounds (scripts/make_sounds.py) are valid, short and not clipped
+      - name: Check celebration sounds
+        working-directory: .
+        run: python -m unittest scripts/test_make_sounds.py -v
 
   database:
     name: Database migrations and security rules

@@ -6,6 +6,8 @@ import { scheduleGameReminders, cancelGameReminders } from '../lib/notifications
 import { formatGameTime, formatSport, sportEmoji } from '../utils/format';
 import { COLORS } from '../theme/colors';
 import TeamsCard from '../components/TeamsCard';
+import Celebration from '../components/Celebration';
+import { loadCelebrationSettings } from '../lib/celebrationSettings';
 
 const TONES = [
   'rgba(23,32,25,0.30)',
@@ -22,6 +24,8 @@ export default function GameDetailsScreen({ game, park, userId, onClose }) {
   const [parkRate, setParkRate] = useState(null);
   const [onMyWay, setOnMyWay] = useState(false);
   const [marking, setMarking] = useState(false);
+  const [celebration, setCelebration] = useState({ animations: true, sounds: true }); // Profile switches
+  const [celebrating, setCelebrating] = useState(false); // true right after joining
 
   const shareAnim = useRef(new Animated.Value(0)).current;
 
@@ -61,6 +65,10 @@ export default function GameDetailsScreen({ game, park, userId, onClose }) {
     fetchRoster();
     fetchRate();
   }, [game, userId]);
+
+  useEffect(() => {
+    loadCelebrationSettings().then(setCelebration);
+  }, []);
 
   const playerCount = players.length;
   const maxPlayers = game?.max_players || 10;
@@ -127,6 +135,7 @@ export default function GameDetailsScreen({ game, park, userId, onClose }) {
 
       await scheduleGameReminders({ ...game, parks: park });
       await fetchRoster();
+      if (celebration.animations) setCelebrating(true);
     } catch (error) {
       Alert.alert('Could Not Join', error.message);
     } finally {
@@ -499,6 +508,17 @@ export default function GameDetailsScreen({ game, park, userId, onClose }) {
           </Text>
         )}
       </View>
+
+      {celebrating && (
+        <Celebration
+          sport={game.sport}
+          mode="joined"
+          title={game.title}
+          subtitle={`${game.title || 'Pickup game'} · ${formatGameTime(game.start_time)}`}
+          settings={celebration}
+          onDone={() => setCelebrating(false)}
+        />
+      )}
     </View>
   );
 }
