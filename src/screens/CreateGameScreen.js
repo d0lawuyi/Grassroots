@@ -26,7 +26,7 @@ function roundToNextHour(date) {
   return d;
 }
 
-export default function CreateGameScreen({ userId, onClose, initialParkId = null }) {
+export default function CreateGameScreen({ userId, onClose, initialParkId = null, initialStart = null }) {
   const [parks, setParks] = useState([]);
   const [title, setTitle] = useState('');
   const [sport, setSport] = useState('soccer');
@@ -34,7 +34,8 @@ export default function CreateGameScreen({ userId, onClose, initialParkId = null
   const [parkId, setParkId] = useState(initialParkId || '');
   const [maxPlayers, setMaxPlayers] = useState('10');
   const [minPlayers, setMinPlayers] = useState('8');
-  const [startTime, setStartTime] = useState(roundToNextHour(new Date()));
+  // A time picked on the venue page, otherwise the next whole hour
+  const [startTime, setStartTime] = useState(initialStart ? new Date(initialStart) : roundToNextHour(new Date()));
   const [duration, setDuration] = useState(90);
   const [repeatWeekly, setRepeatWeekly] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);

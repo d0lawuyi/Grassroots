@@ -78,6 +78,7 @@ export default function App() {
 
   const [showCreateGame, setShowCreateGame] = useState(false);
   const [createAtParkId, setCreateAtParkId] = useState(null);
+  const [createAtStart, setCreateAtStart] = useState(null); // a time picked on the venue page
   const [selectedPark, setSelectedPark] = useState(null);
   const [selectedGame, setSelectedGame] = useState(null);
   const [chatGame, setChatGame] = useState(null);
@@ -266,10 +267,11 @@ export default function App() {
               userLocation={userLocation}
               onSelectPark={(park) => setSelectedPark(park)}
               onSelectGame={openGame}
-              onCreateGame={(park) => {
-                 setCreateAtParkId(park?.park_id || null);
-                 setShowCreateGame(true);
-               }}
+              onCreateGame={(park, start) => {
+                setCreateAtParkId(park?.park_id || null);
+                setCreateAtStart(start || null);
+                setShowCreateGame(true);
+              }}
             />
           )}
 
@@ -339,15 +341,18 @@ export default function App() {
           onRequestClose={() => {
             setShowCreateGame(false);
             setCreateAtParkId(null);
+            setCreateAtStart(null);
           }}
         >
           <CreateGameScreen
-            key={createAtParkId || 'new'}
+            key={`${createAtParkId || 'new'}-${createAtStart ? createAtStart.getTime() : ''}`}
             userId={session.user.id}
             initialParkId={createAtParkId}
+            initialStart={createAtStart}
             onClose={() => {
               setShowCreateGame(false);
               setCreateAtParkId(null);
+              setCreateAtStart(null);
               setTabKey((k) => k + 1);
             }}
           />
