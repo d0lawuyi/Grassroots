@@ -26,6 +26,9 @@ jobs:
           cache: npm
       - name: Install packages
         run: npm ci
+      # Rules for the venue page's time slots (src/utils/slots.js), in Indianapolis time
+      - name: Check time-slot rules
+        run: TZ=America/Indianapolis node --test scripts/check-slots.mjs
       # Builds the JavaScript bundle the phone downloads. A typo, a missing import or
       # a file that doesn't exist fails here instead of on your phone.
       - name: Build iOS bundle

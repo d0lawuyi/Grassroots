@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import MapView, { Marker } from 'react-native-maps';
 import { SatellitePreview, VenueSatelliteMap, MapTypeToggle } from '../components/SatelliteView';
+import TimeSlots from '../components/TimeSlots';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
 import { FONTS } from '../theme/fonts';
@@ -113,7 +114,7 @@ function Fact({ icon, label, value }) {
   );
 }
 
-function VenueDetail({ venue, onClose, onCreateGame, onViewGames }) {
+function VenueDetail({ venue, onClose, onCreateGame, onViewGames, onPickGame }) {
   const photos = photosOf(venue);
   const r = rate(venue);
   const verified = isVerified(venue);
@@ -155,6 +156,10 @@ function VenueDetail({ venue, onClose, onCreateGame, onViewGames }) {
             </View>
           )}
 
+          {/* Booked games and open start times for the next 7 days */}
+          <TimeSlots venue={venue} onPickTime={(start) => onCreateGame(start)} onPickGame={onPickGame} />
+
+          <Text style={s.sectionLabel}>About this venue</Text>
           <View style={s.factCard}>
             <Fact icon="pricetag-outline" label="Price" value={r.free ? 'Free to use' : r.known ? `${r.text.replace('/hr', '')} per hour` : null} />
             <Fact icon="time-outline" label="When to book" value={venue?.availability} />
@@ -194,7 +199,7 @@ function VenueDetail({ venue, onClose, onCreateGame, onViewGames }) {
             <Text style={s.bookPrice}>{r.text}</Text>
             <Text style={s.bookSub}>{verified ? 'Split between your players' : 'Price not confirmed'}</Text>
           </View>
-          <TouchableOpacity style={s.bookBtn} onPress={onCreateGame}>
+          <TouchableOpacity style={s.bookBtn} onPress={() => onCreateGame(null)}>
             <Text style={s.bookBtnText}>Create a game</Text>
           </TouchableOpacity>
         </View>
@@ -453,10 +458,15 @@ export default function ExploreScreen({ userLocation, onSelectGame, onCreateGame
           <VenueDetail
             venue={selected}
             onClose={() => setSelected(null)}
-            onCreateGame={() => {
+            onCreateGame={(start) => {
               const v = selected;
               setSelected(null);
-              onCreateGame?.(v);
+              onCreateGame?.(v, start);
+            }}
+            onPickGame={(game) => {
+              const v = selected;
+              setSelected(null);
+              onSelectGame?.({ ...game, parks: v });
             }}
             onViewGames={() => {
               const v = selected;
