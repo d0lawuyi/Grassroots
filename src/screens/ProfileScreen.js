@@ -10,6 +10,7 @@ import { COLORS } from '../theme/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CalendarLinkRow from '../components/CalendarLinkRow';
 import SkillLevelPicker from '../components/SkillLevelPicker';
+import { loadCelebrationSettings, saveCelebrationSetting } from '../lib/celebrationSettings';
 
 export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) {
   const [profile, setProfile] = useState(null);
@@ -22,6 +23,7 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
   const [isAdmin, setIsAdmin] = useState(false);
+  const [celebration, setCelebration] = useState({ animations: true, sounds: true });
 
   const barGrow = useRef(new Animated.Value(0)).current;
 
@@ -33,6 +35,16 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
       setProfile((p) => ({ ...p, sideline_feature: !on }));
       Alert.alert('Could not save', error.message);
     }
+  }
+
+  useEffect(() => {
+    loadCelebrationSettings().then(setCelebration);
+  }, []);
+
+  // Celebration switches are saved on this phone only
+  function toggleCelebration(key, on) {
+    setCelebration((c) => ({ ...c, [key]: on }));
+    saveCelebrationSetting(key, on);
   }
 
   // Saves "Your level" (1-5) the same way: show it right away, put it back if saving fails.
@@ -468,6 +480,40 @@ export default function ProfileScreen({ userId, onOpenListVenue, onOpenAdmin }) 
         <View style={styles.venueSection}>
           <Text style={styles.venueSectionTitle}>Your level</Text>
           <SkillLevelPicker value={profile?.skill_rating ?? null} onChange={saveSkill} />
+        </View>
+
+        {/* CELEBRATIONS: the animation and sounds after posting or joining a game */}
+        <View style={styles.venueSection}>
+          <Text style={styles.venueSectionTitle}>Celebrations</Text>
+          <View style={styles.venueRow}>
+            <Ionicons name="sparkles-outline" size={22} color={COLORS.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.venueRowTitle}>Celebration animations</Text>
+              <Text style={styles.venueRowSub}>A short animation when you post or join a game</Text>
+            </View>
+            <Switch
+              value={celebration.animations}
+              onValueChange={(on) => toggleCelebration('animations', on)}
+              trackColor={{ false: COLORS.neutral200, true: COLORS.primary }}
+              thumbColor={COLORS.white}
+              accessibilityLabel="Celebration animations"
+            />
+          </View>
+          <View style={[styles.venueRow, !celebration.animations && { opacity: 0.5 }]}>
+            <Ionicons name="volume-high-outline" size={22} color={COLORS.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.venueRowTitle}>Celebration sounds</Text>
+              <Text style={styles.venueRowSub}>Whistles, swishes and cheers. Off when your phone is on silent</Text>
+            </View>
+            <Switch
+              value={celebration.sounds}
+              onValueChange={(on) => toggleCelebration('sounds', on)}
+              disabled={!celebration.animations}
+              trackColor={{ false: COLORS.neutral200, true: COLORS.primary }}
+              thumbColor={COLORS.white}
+              accessibilityLabel="Celebration sounds"
+            />
+          </View>
         </View>
 
         {/* THE SIDELINE: opt in to being featured in the weekly newsletter */}

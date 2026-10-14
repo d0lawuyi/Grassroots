@@ -9,6 +9,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
 import { FONTS } from '../theme/fonts';
+import Celebration from '../components/Celebration';
+import { loadCelebrationSettings } from '../lib/celebrationSettings';
 
 /*
  * Create Game, Clubhouse style. Four numbered sections:
@@ -104,6 +106,12 @@ export default function CreateGameScreen({ userId, onClose, initialParkId = null
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [celebration, setCelebration] = useState({ animations: true, sounds: true }); // Profile switches
+  const [celebrating, setCelebrating] = useState(null); // { title, subtitle } once the game is saved
+
+  useEffect(() => {
+    loadCelebrationSettings().then(setCelebration);
+  }, []);
 
   useEffect(() => {
     async function fetchParks() {
@@ -220,6 +228,11 @@ export default function CreateGameScreen({ userId, onClose, initialParkId = null
         const { error: genError } = await supabase.rpc('generate_series_games');
         if (genError) throw genError;
 
+        if (celebration.animations) {
+          const weekday = startTime.toLocaleDateString([], { weekday: 'long' });
+          setCelebrating({ title: title.trim(), subtitle: `${title.trim()} · Every ${weekday}, ${timeLabel}` });
+          return; // the celebration closes this screen when it ends
+        }
         Alert.alert('Weekly game created', 'It’s on the map for the next 4 weeks.');
       } else {
         const { error } = await supabase.from('games').insert({
@@ -236,6 +249,10 @@ export default function CreateGameScreen({ userId, onClose, initialParkId = null
           status: 'open',
         });
         if (error) throw error;
+        if (celebration.animations) {
+          setCelebrating({ title: title.trim(), subtitle: `${title.trim()} · ${dateLabel}, ${timeLabel}` });
+          return; // the celebration closes this screen when it ends
+        }
         Alert.alert('Your game is live', 'Players nearby can find it and join.');
       }
 
@@ -535,6 +552,18 @@ export default function CreateGameScreen({ userId, onClose, initialParkId = null
           )}
         </TouchableOpacity>
       </View>
+
+      {celebrating && (
+        <Celebration
+          sport={sport}
+          mode="created"
+          isWeekly={repeatWeekly}
+          title={celebrating.title}
+          subtitle={celebrating.subtitle}
+          settings={celebration}
+          onDone={onClose}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }
