@@ -7,7 +7,8 @@ import { supabase } from '../lib/supabase';
 import { cancelGameReminders } from '../lib/notifications';
 import { formatGameTime, formatSport, sportEmoji } from '../utils/format';
 import { COLORS } from '../theme/colors';
-import ScreenHeader from '../components/ScreenHeader';
+import { FONTS } from '../theme/fonts';
+import { countPlayers, soonestFirst, fillLabel, fillFraction, calendarTile } from '../utils/myGames';
 import NextUpCard from '../components/NextUpCard';
 import { openDirections } from '../utils/directions';
 import { fetchHiddenGameIds, hideGame, REMOVE_TITLE, removeMessage } from '../lib/hiddenGames';
@@ -18,6 +19,7 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpen
   const [nextUpPlayers, setNextUpPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [players, setPlayers] = useState({}); // game_id -> how many joined, for the fill bars
 
   async function fetchMyGames(showSpinner = true) {
     if (showSpinner) setLoading(true);
@@ -39,8 +41,17 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpen
       .select('*, parks(name, latitude, longitude)')
       .eq('organizer_id', userId);
 
-    const organizing = (orgGames || []).filter((g) => g.start_time >= now);
-    const joinedUpcoming = joined.filter((g) => g.start_time >= now);
+    const organizing = soonestFirst((orgGames || []).filter((g) => g.start_time >= now));
+    const joinedUpcoming = soonestFirst(joined.filter((g) => g.start_time >= now));
+
+    // Player counts for the fill bars on upcoming cards
+    const upcomingIds = [...new Set([...organizing, ...joinedUpcoming].map((g) => g.game_id))];
+    if (upcomingIds.length) {
+      const { data: counts } = await supabase.from('bookings').select('game_id').in('game_id', upcomingIds);
+      setPlayers(countPlayers(counts));
+    } else {
+      setPlayers({});
+    }
 
     const pastById = {};
     [...(orgGames || []).filter((g) => g.start_time < now), ...joined.filter((g) => g.start_time < now)]
@@ -200,31 +211,33 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpen
     );
   }
 
-  const hasAny = sections.some((s) => s.data.length > 0);
+  const hasAny = sections.some((sec) => sec.data.length > 0);
+  const hasUpcoming = sections.some((sec) => sec.title !== 'Past' && sec.data.length > 0);
 
   return (
     <View style={styles.container}>
-            <ScreenHeader
-        title="My Games"
-        right={
-          <TouchableOpacity onPress={onOpenSeries}>
-            <Ionicons name="repeat" size={22} color={COLORS.primary} />
-          </TouchableOpacity>
-        }
-      />
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>My games</Text>
+        <TouchableOpacity style={styles.weeklyPill} onPress={onOpenSeries} accessibilityLabel="Your weekly games">
+          <Ionicons name="repeat" size={15} color={COLORS.primary} />
+          <Text style={styles.weeklyText}>Weekly</Text>
+        </TouchableOpacity>
+      </View>
 
       {!hasAny ? (
         <View style={styles.center}>
-          <View style={styles.emptyMark} />
-          <Text style={styles.emptyTitle}>No games yet</Text>
-          <Text style={styles.emptySubtitle}>Join or start a run from the Explore tab</Text>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="calendar-outline" size={28} color={COLORS.primary} />
+          </View>
+          <Text style={styles.emptyTitle}>No games coming up</Text>
+          <Text style={styles.emptySubtitle}>Join one in Explore or start your own with the + button.</Text>
         </View>
       ) : (
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.game_id}
           stickySectionHeadersEnabled={false}
-          contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -235,84 +248,85 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpen
               progressBackgroundColor={COLORS.inkRaised}
             />
           }
-
-                    ListHeaderComponent={
-            <NextUpCard
-              game={nextUp}
-              players={nextUpPlayers}
-              onOpen={() => nextUp && onSelectGame(nextUp)}
-              onOpenChat={() => nextUp && onSelectGame(nextUp)}
-              onDirections={() => nextUp && openDirections(nextUp.parks)}
-            />
+          ListHeaderComponent={
+            <>
+              <NextUpCard
+                game={nextUp}
+                players={nextUpPlayers}
+                onOpen={() => nextUp && onSelectGame(nextUp)}
+                onOpenChat={() => nextUp && onSelectGame(nextUp)}
+                onDirections={() => nextUp && openDirections(nextUp.parks)}
+              />
+              {!hasUpcoming && (
+                <Text style={styles.noneUpcoming}>No games coming up. Join one in Explore or start your own.</Text>
+              )}
+            </>
           }
-          
           renderSectionHeader={({ section }) =>
             section.data.length > 0 ? (
               <View style={styles.sectionHead}>
-                <View style={styles.sectionBar} />
                 <Text style={styles.sectionTitle}>{section.title}</Text>
-                <Text style={styles.sectionCount}>{section.data.length}</Text>
+                <View style={styles.sectionCount}>
+                  <Text style={styles.sectionCountText}>{section.data.length}</Text>
+                </View>
               </View>
             ) : null
           }
           renderItem={({ item, section }) => {
             const isPast = section.title === 'Past';
-            const swipeAction =
-              section.title === 'Organizing' ? 'delete' :
-              section.title === 'Joined' ? 'leave' : 'remove';
+            const isOrganizing = section.title === 'Organizing';
+            const swipeAction = isOrganizing ? 'delete' : section.title === 'Joined' ? 'leave' : 'remove';
+            const tile = calendarTile(item.start_time);
+            const joinedCount = players[item.game_id] || 0;
+            const time = new Date(item.start_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            const level = item.skill_level ? item.skill_level[0].toUpperCase() + item.skill_level.slice(1) : null;
 
             const card = (
               <TouchableOpacity
                 style={[styles.card, isPast && styles.cardPast]}
                 onPress={() => onSelectGame(item)}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
+                accessibilityLabel={`${item.title}, ${formatGameTime(item.start_time)}, ${item.parks?.name || 'Park'}`}
               >
-                <View style={styles.cardTop}>
-                  <View style={styles.badgeRow}>
-                    <Text style={styles.sportBadge}>
-                      {sportEmoji(item.sport)} {formatSport(item.sport)}
-                    </Text>
-                    {item.skill_level && (
-                      <Text style={styles.skillBadge}>
-                        {item.skill_level.charAt(0).toUpperCase() + item.skill_level.slice(1)}
-                      </Text>
-                    )}
+                <View style={styles.cardRow}>
+                  <View style={[styles.tile, isPast && styles.tilePast]}>
+                    <Text style={[styles.tileWeekday, isPast && styles.textPast]}>{tile.weekday}</Text>
+                    <Text style={[styles.tileDay, isPast && styles.textPast]}>{tile.day}</Text>
                   </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.title, isPast && styles.textPast]} numberOfLines={1}>{item.title}</Text>
+                    <Text style={styles.meta} numberOfLines={1}>
+                      {item.parks?.name || 'Park'} · {time}
+                    </Text>
+                    <View style={styles.tags}>
+                      <Text style={[styles.tag, isPast && styles.tagPast]}>
+                        {sportEmoji(item.sport)} {formatSport(item.sport)}
+                      </Text>
+                      {level && <Text style={[styles.tagQuiet, isPast && styles.tagPast]}>{level}</Text>}
+                      {isOrganizing && <Text style={styles.tagOrganizer}>Organizer</Text>}
+                    </View>
+                  </View>
+
                   <Ionicons name="chevron-forward" size={18} color={COLORS.neutral400} />
                 </View>
 
-                <Text style={styles.title}>{item.title}</Text>
-
-                <View style={styles.metaRow}>
-                  <Ionicons name="location-outline" size={15} color={COLORS.neutral500} />
-                  <Text style={styles.meta}>{item.parks?.name || 'Park'}</Text>
-                </View>
-
-                <View style={styles.metaRow}>
-                  <Ionicons name="time-outline" size={15} color={COLORS.neutral500} />
-                  <Text style={styles.meta}>{formatGameTime(item.start_time)}</Text>
-                </View>
-
-                {section.title === 'Joined' && (
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => confirmLeave(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="exit-outline" size={16} color={COLORS.danger} />
-                    <Text style={styles.actionTextDanger}>Leave game</Text>
-                  </TouchableOpacity>
-                )}
-
-                {section.title === 'Organizing' && (
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => confirmDelete(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
-                    <Text style={styles.actionTextDanger}>Delete game</Text>
-                  </TouchableOpacity>
+                {!isPast && (
+                  <View style={styles.fill}>
+                    <View style={styles.fillTrack}>
+                      <View style={[styles.fillBar, { width: `${fillFraction(joinedCount, item.max_players || 10) * 100}%` }]} />
+                    </View>
+                    <View style={styles.fillRow}>
+                      <Text style={styles.fillText}>{fillLabel(joinedCount, item.max_players)}</Text>
+                      <TouchableOpacity
+                        onPress={() => (isOrganizing ? confirmDelete(item) : confirmLeave(item))}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityLabel={isOrganizing ? `Delete ${item.title}` : `Leave ${item.title}`}
+                      >
+                        <Text style={styles.dangerLink}>{isOrganizing ? 'Delete game' : 'Leave game'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 )}
 
                 {isPast && (
@@ -324,19 +338,15 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpen
                             key={i}
                             name={item.myRating >= i ? 'star' : 'star-outline'}
                             size={15}
-                            color={item.myRating >= i ? COLORS.primary : COLORS.neutral300}
+                            color={item.myRating >= i ? COLORS.neutral700 : COLORS.neutral300}
                           />
                         ))}
                         <Text style={styles.ratedText}>You rated this</Text>
                       </View>
                     ) : (
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.rateButton]}
-                        onPress={() => onRateGame(item)}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="star-outline" size={16} color={COLORS.ink} />
-                        <Text style={styles.actionTextPrimary}>Rate this game</Text>
+                      <TouchableOpacity style={styles.rateButton} onPress={() => onRateGame(item)} activeOpacity={0.8}>
+                        <Ionicons name="star-outline" size={15} color={COLORS.white} />
+                        <Text style={styles.rateText}>Rate this game</Text>
                       </TouchableOpacity>
                     )}
 
@@ -354,8 +364,6 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpen
                 )}
               </TouchableOpacity>
             );
-
-            if (!swipeAction) return card;
 
             return (
               <ReanimatedSwipeable
@@ -378,88 +386,92 @@ export default function MyGamesScreen({ userId, onSelectGame, onRateGame, onOpen
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.ink },
-  signOutText: { color: COLORS.mute, fontSize: 13, fontWeight: '600' },
-  center: {
-    flex: 1, justifyContent: 'center', alignItems: 'center',
-    padding: 40, backgroundColor: COLORS.ink,
-  },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, backgroundColor: COLORS.ink },
 
-  emptyMark: {
-    width: 15, height: 15, backgroundColor: COLORS.primary,
-    borderRadius: 3, transform: [{ rotate: '45deg' }], marginBottom: 20,
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingTop: 62, paddingHorizontal: 20, paddingBottom: 10,
   },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: COLORS.snow },
-  emptySubtitle: { fontSize: 14, color: COLORS.mute, marginTop: 6, textAlign: 'center' },
+  headerTitle: { fontFamily: FONTS.display, fontSize: 32, lineHeight: 38, color: COLORS.snow, letterSpacing: -0.4 },
+  weeklyPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 18,
+    backgroundColor: COLORS.cardFill, borderWidth: 1, borderColor: COLORS.line,
+  },
+  weeklyText: { color: COLORS.primary, fontSize: 13, fontWeight: '800' },
 
-  sectionHead: {
-    flexDirection: 'row', alignItems: 'center',
-    marginBottom: 14, marginTop: 10,
+  emptyIcon: {
+    width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.sage, marginBottom: 16,
   },
-  sectionBar: { width: 16, height: 2, backgroundColor: COLORS.primary, marginRight: 9 },
-  sectionTitle: {
-    fontSize: 10.5, fontWeight: '800', color: COLORS.primary,
-    textTransform: 'uppercase', letterSpacing: 2.4,
-  },
+  emptyTitle: { fontFamily: FONTS.displaySemi, fontSize: 22, color: COLORS.snow },
+  emptySubtitle: { fontSize: 14, color: COLORS.mute, marginTop: 6, textAlign: 'center', lineHeight: 20 },
+  noneUpcoming: { fontSize: 14, color: COLORS.mute, marginBottom: 8, lineHeight: 20 },
+
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 10 },
+  sectionTitle: { fontFamily: FONTS.displaySemi, fontSize: 20, color: COLORS.snow },
   sectionCount: {
-    marginLeft: 'auto', fontSize: 11, fontWeight: '800',
-    color: COLORS.mute, letterSpacing: 1,
+    minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.sage,
   },
+  sectionCountText: { color: COLORS.primary, fontSize: 12, fontWeight: '800' },
 
   card: {
-    backgroundColor: COLORS.cardFill, borderRadius: 20, padding: 18,
-    marginBottom: 14, borderWidth: 1, borderColor: COLORS.line,
+    backgroundColor: COLORS.cardFill, borderRadius: 20, padding: 14,
+    marginBottom: 12, borderWidth: 1, borderColor: COLORS.line,
   },
-  cardPast: { backgroundColor: 'rgba(0,0,0,0.25)', borderColor: 'rgba(23,32,25,0.06)' },
-  cardTop: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 10,
-  },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  sportBadge: {
-    fontSize: 12, fontWeight: '800', color: COLORS.primary,
-    backgroundColor: COLORS.limeDim, paddingHorizontal: 10,
-    paddingVertical: 5, borderRadius: 12, overflow: 'hidden',
-  },
-  skillBadge: {
-    fontSize: 11.5, fontWeight: '600', color: COLORS.neutral600,
-    backgroundColor: COLORS.neutral100, paddingHorizontal: 9,
-    paddingVertical: 5, borderRadius: 12, overflow: 'hidden',
-  },
-  title: {
-    fontSize: 18, fontWeight: '700', color: COLORS.snow,
-    marginBottom: 8, letterSpacing: -0.4,
-  },
-  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  meta: { fontSize: 14, color: COLORS.neutral500, marginLeft: 6 },
+  // Played games stay greyed out
+  cardPast: { backgroundColor: 'rgba(23,32,25,0.05)', borderColor: 'rgba(23,32,25,0.06)' },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
 
-  actionButton: {
-    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
-    marginTop: 14, paddingHorizontal: 13, paddingVertical: 8,
-    borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,107,107,0.25)',
-    backgroundColor: 'rgba(255,107,107,0.08)',
+  tile: {
+    width: 52, height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.sage,
   },
-  rateButton: {
-    borderColor: COLORS.primary, backgroundColor: COLORS.primary,
-  },
-  actionTextDanger: { color: COLORS.danger, fontWeight: '700', fontSize: 13, marginLeft: 5 },
-  actionTextPrimary: { color: COLORS.ink, fontWeight: '800', fontSize: 13, marginLeft: 5 },
+  tilePast: { backgroundColor: 'rgba(23,32,25,0.08)' },
+  tileWeekday: { color: COLORS.primary, fontSize: 10.5, fontWeight: '800', letterSpacing: 1 },
+  tileDay: { fontFamily: FONTS.display, color: COLORS.primary, fontSize: 22, lineHeight: 26 },
+  textPast: { color: COLORS.neutral600 },
 
-  ratedRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 14 },
-  ratedText: { fontSize: 12, color: COLORS.mute, marginLeft: 7 },
-
-  swipeAction: {
-    backgroundColor: COLORS.danger,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 88,
-    marginBottom: 14,
-    borderRadius: 20,
-    marginLeft: 10,
+  title: { fontFamily: FONTS.displaySemi, fontSize: 18, lineHeight: 23, color: COLORS.snow },
+  meta: { fontSize: 13.5, color: COLORS.mute, marginTop: 2 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  tag: {
+    fontSize: 11.5, fontWeight: '800', color: COLORS.primary, backgroundColor: COLORS.limeDim,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, overflow: 'hidden',
   },
-  swipeActionText: { color: COLORS.white, fontWeight: '800', fontSize: 12, marginTop: 4 },
+  tagQuiet: {
+    fontSize: 11.5, fontWeight: '600', color: COLORS.neutral600, backgroundColor: COLORS.neutral100,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, overflow: 'hidden',
+  },
+  tagOrganizer: {
+    fontSize: 11.5, fontWeight: '800', color: COLORS.clay, backgroundColor: COLORS.clayLight,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, overflow: 'hidden',
+  },
+  tagPast: { color: COLORS.neutral600, backgroundColor: 'rgba(23,32,25,0.06)' },
+
+  fill: { marginTop: 12 },
+  fillTrack: { height: 5, borderRadius: 3, backgroundColor: COLORS.neutral200, overflow: 'hidden' },
+  fillBar: { height: '100%', borderRadius: 3, backgroundColor: COLORS.primary },
+  fillRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 7 },
+  fillText: { fontSize: 12.5, color: COLORS.mute, fontWeight: '600' },
+  dangerLink: { fontSize: 12.5, color: COLORS.danger, fontWeight: '700' },
 
   // Played games: rate (or your stars) on the left, Remove on the right
-  pastFooter: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-  removeLink: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8 },
+  pastFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
+  ratedRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  ratedText: { fontSize: 12, color: COLORS.mute, marginLeft: 7 },
+  rateButton: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12, backgroundColor: COLORS.primary,
+  },
+  rateText: { color: COLORS.white, fontWeight: '800', fontSize: 13 },
+  removeLink: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6 },
   removeLinkText: { color: COLORS.neutral700, fontWeight: '700', fontSize: 13 },
+
+  swipeAction: {
+    backgroundColor: COLORS.danger, justifyContent: 'center', alignItems: 'center',
+    width: 88, marginBottom: 12, borderRadius: 20, marginLeft: 10,
+  },
+  swipeActionText: { color: COLORS.white, fontWeight: '800', fontSize: 12, marginTop: 4 },
 });
