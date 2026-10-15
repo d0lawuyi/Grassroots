@@ -1,8 +1,11 @@
 # The Grassroots website
 
-The same app, running in a browser at **https://d0lawuyi.github.io/Grassroots/**.
-Every push to `main` that touches the app rebuilds and republishes it
-(`.github/workflows/deploy-web.yml`), so a merged change is live in a few minutes.
+The same app, running in a browser and hosted on **Vercel**. Vercel watches the GitHub repo:
+- every merge to `main` rebuilds and publishes the live site;
+- every pull request gets its own preview address to try first.
+
+Vercel reads `vercel.json` in this folder for how to build the site (`npx expo export --platform web`).
+The iPhone app comes later, through EAS.
 
 ## How the web version differs
 
@@ -15,16 +18,19 @@ Every push to `main` that touches the app rebuilds and republishes it
 | Haptics | Skipped. |
 
 Expo picks a `.web.js` file over the plain `.js` file automatically when building for the web.
-The API allows calls from the website through CORS (`services/calendar-feed/src/CalendarFeed/Config/WebsiteCors.cs`).
 
-## One-time setup
+The API lets only Grassroots pages call it from a browser (CORS). The allowed addresses are in
+`services/calendar-feed/src/CalendarFeed/Config/WebsiteCors.cs`.
 
-1. **Settings > Pages > Build and deployment > Source:** GitHub Actions.
-2. **Settings > Secrets and variables > Actions > Variables tab > New repository variable**, three times.
-   Copy the values from the app's `.env`:
+## One-time setup on Vercel
+
+1. vercel.com → **Add New → Project** → import `d0lawuyi/Grassroots`.
+2. Framework Preset: **Other**. Leave the build settings alone; `vercel.json` sets them.
+3. **Environment Variables:** add these three, copying the values from the app's `.env`:
    - `EXPO_PUBLIC_SUPABASE_URL`
    - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (the `sb_publishable_...` key, never the secret key)
    - `EXPO_PUBLIC_CALENDAR_FEED_URL`
+4. **Deploy.**
 
 These values end up inside the website's JavaScript, where anyone can read them. That's fine for
 the publishable key, because Supabase's row-level security decides what each user can do.
