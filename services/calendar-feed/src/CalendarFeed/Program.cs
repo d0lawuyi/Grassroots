@@ -73,7 +73,7 @@ builder.Services.AddRateLimiter(options =>
 
 // Lets the Grassroots website (a browser on another address) call this API. See Config/WebsiteCors.cs.
 builder.Services.AddCors(options => options.AddPolicy(WebsiteCors.PolicyName, policy => policy
-    .WithOrigins(WebsiteCors.Origins)
+    .SetIsOriginAllowed(WebsiteCors.IsAllowed)
     .WithMethods(WebsiteCors.Methods)
     .WithHeaders(WebsiteCors.Headers)));
 

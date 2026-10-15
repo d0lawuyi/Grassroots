@@ -26,6 +26,13 @@
       "eas": {
         "projectId": "fa591a6f-c67a-4c2f-8772-9ee6b02a733e"
       }
+    },
+    "web": {
+      "name": "Grassroots",
+      "shortName": "Grassroots",
+      "themeColor": "#17442F",
+      "backgroundColor": "#F4F0E6",
+      "output": "single"
     }
   }
 }

@@ -8,13 +8,27 @@ public static class WebsiteCors
 {
     public const string PolicyName = "website";
 
+    // Exact addresses: the live website on Vercel and "npx expo start --web" on your PC.
     public static readonly string[] Origins =
     [
-        "https://d0lawuyi.github.io", // the live website on GitHub Pages
-        "http://localhost:8081",      // npx expo start --web on your PC
+        "http://localhost:8081",
+    ];
+
+    // Vercel preview builds (one per pull request) get addresses like
+    // grassroots-git-web-version-<account>.vercel.app. Only addresses ending in your own
+    // account's suffix are allowed, so someone else's Vercel site can't call the API.
+    public static readonly string[] VercelSuffixes =
+    [
     ];
 
     // Only what the app sends: GET for feeds, POST for making teams, the sign-in token and JSON.
     public static readonly string[] Methods = ["GET", "POST"];
     public static readonly string[] Headers = ["Authorization", "Content-Type"];
+
+    public static bool IsAllowed(string origin)
+    {
+        if (Origins.Contains(origin, StringComparer.OrdinalIgnoreCase)) return true;
+        if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps) return false;
+        return VercelSuffixes.Any(suffix => uri.Host.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
+    }
 }
