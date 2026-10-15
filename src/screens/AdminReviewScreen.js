@@ -7,6 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
+import { FONTS } from '../theme/fonts';
+
+const CREAM_SOFT = 'rgba(255,253,248,0.72)';
 
 const CHECKS = [
   { key: 'ownership', label: 'Ownership', hint: 'Does the proof name match the owner or their organization?' },
@@ -20,11 +23,20 @@ const FILTERS = [
   { key: 'done', label: 'Decided' },
 ];
 
+/* Each decision is a coloured pill: text colour and pill colour. */
 const DECIDED_LABEL = {
-  approved: { text: 'Approved', color: COLORS.success },
-  changes_requested: { text: 'Changes requested', color: COLORS.warning },
-  rejected: { text: 'Rejected', color: COLORS.danger },
+  approved: { text: 'Approved', fg: COLORS.white, bg: COLORS.forest },
+  changes_requested: { text: 'Changes requested', fg: COLORS.clay, bg: COLORS.clayLight },
+  rejected: { text: 'Rejected', fg: COLORS.danger, bg: 'rgba(180,35,24,0.10)' },
 };
+
+function Pill({ text, fg, bg }) {
+  return (
+    <View style={[s.statusPill, { backgroundColor: bg }]}>
+      <Text style={[s.statusPillText, { color: fg }]}>{text}</Text>
+    </View>
+  );
+}
 
 const sportName = (s) => s.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 
@@ -134,7 +146,9 @@ export default function AdminReviewScreen({ onClose }) {
                 {item.photos?.[0] ? (
                   <Image source={{ uri: item.photos[0] }} style={s.thumb} />
                 ) : (
-                  <View style={[s.thumb, s.thumbEmpty]} />
+                  <View style={[s.thumb, s.thumbEmpty]}>
+                    <Ionicons name="image-outline" size={20} color={COLORS.mute} />
+                  </View>
                 )}
                 <View style={{ flex: 1 }}>
                   <Text style={s.rowTitle} numberOfLines={1}>{item.name}</Text>
@@ -142,9 +156,9 @@ export default function AdminReviewScreen({ onClose }) {
                     {item.owner_email} · {item.is_free ? 'Free' : `$${Number(item.hourly_rate).toFixed(0)}/hr`}
                   </Text>
                   {decided ? (
-                    <Text style={[s.rowStatus, { color: decided.color }]}>{decided.text}</Text>
+                    <Pill text={decided.text} fg={decided.fg} bg={decided.bg} />
                   ) : (
-                    <Text style={s.rowStatus}>Submitted {daysAgo(item.submitted_at)}</Text>
+                    <Pill text={`Submitted ${daysAgo(item.submitted_at)}`} fg={COLORS.forest} bg={COLORS.sage} />
                   )}
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={COLORS.mute} />
@@ -170,13 +184,17 @@ function PrecheckSummary({ precheck }) {
   }
   const flags = precheck.findings.filter((f) => f.level === 'flag').length;
   const warns = precheck.findings.filter((f) => f.level === 'warn').length;
-  const tone = flags > 0 ? COLORS.danger : warns > 0 ? COLORS.warning : COLORS.success;
+  const tone = flags > 0 ? COLORS.clay : warns > 0 ? COLORS.warning : COLORS.forest;
+  const verdict = flags > 0 ? 'Needs a close look' : warns > 0 ? 'A few questions' : 'Looks clean';
   return (
-    <View style={[s.autoSummary, { borderColor: tone }]}>
-      <Text style={[s.autoScore, { color: tone }]}>{precheck.score}</Text>
+    <View style={s.autoSummary}>
+      <Text style={s.autoScore}>{precheck.score}</Text>
       <View style={{ flex: 1 }}>
         <Text style={s.autoTitle}>Automatic pre-check</Text>
-        <Text style={s.checkHint}>
+        <View style={[s.statusPill, s.autoVerdict]}>
+          <Text style={[s.statusPillText, { color: tone }]}>{verdict}</Text>
+        </View>
+        <Text style={s.autoHint}>
           {flags} {flags === 1 ? 'flag' : 'flags'}, {warns} {warns === 1 ? 'warning' : 'warnings'}. A guide only: you still decide each check.
         </Text>
       </View>
@@ -340,16 +358,16 @@ function ReviewDetail({ submission, onBack, onDecided }) {
                   onPress={() => waiting && setCheck(c.key, { result: 'pass' })}
                   accessibilityState={{ selected: val.result === 'pass' }}
                 >
-                  <Ionicons name="checkmark" size={16} color={val.result === 'pass' ? COLORS.ink : COLORS.snow} />
-                  <Text style={[s.pillText, val.result === 'pass' && { color: COLORS.ink }]}>Pass</Text>
+                  <Ionicons name="checkmark" size={16} color={val.result === 'pass' ? COLORS.white : COLORS.snow} />
+                  <Text style={[s.pillText, val.result === 'pass' && { color: COLORS.white }]}>Pass</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[s.pill, val.result === 'flag' && s.pillFlag]}
                   onPress={() => waiting && setCheck(c.key, { result: 'flag' })}
                   accessibilityState={{ selected: val.result === 'flag' }}
                 >
-                  <Ionicons name="flag-outline" size={15} color={val.result === 'flag' ? COLORS.ink : COLORS.snow} />
-                  <Text style={[s.pillText, val.result === 'flag' && { color: COLORS.ink }]}>Flag</Text>
+                  <Ionicons name="flag-outline" size={15} color={val.result === 'flag' ? COLORS.white : COLORS.snow} />
+                  <Text style={[s.pillText, val.result === 'flag' && { color: COLORS.white }]}>Flag</Text>
                 </TouchableOpacity>
               </View>
               {val.result === 'flag' || val.note ? (
@@ -384,7 +402,7 @@ function ReviewDetail({ submission, onBack, onDecided }) {
               disabled={!allPass || busy}
             >
               {busy ? (
-                <ActivityIndicator color={COLORS.ink} />
+                <ActivityIndicator color={COLORS.white} />
               ) : (
                 <Text style={[s.ctaText, !allPass && { color: COLORS.mute }]}>
                   {allPass ? 'Approve and publish' : unanswered > 0 ? `Answer ${unanswered} more ${unanswered === 1 ? 'check' : 'checks'}` : 'All checks must pass'}
@@ -400,7 +418,7 @@ function ReviewDetail({ submission, onBack, onDecided }) {
           </>
         ) : (
           <View style={s.decidedBox}>
-            <Text style={[s.rowStatus, { color: DECIDED_LABEL[item.status]?.color }]}>{DECIDED_LABEL[item.status]?.text}</Text>
+            {DECIDED_LABEL[item.status] ? <Pill {...DECIDED_LABEL[item.status]} /> : null}
             {item.admin_note ? <Text style={s.factValue}>{item.admin_note}</Text> : null}
           </View>
         )}
@@ -415,71 +433,89 @@ const s = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   iconBtn: { width: 44, height: 44, justifyContent: 'center' },
   adminTag: {
-    color: COLORS.ink, backgroundColor: COLORS.primary, fontSize: 12, fontWeight: '900',
+    color: COLORS.clay, backgroundColor: COLORS.clayLight, fontSize: 12, fontWeight: '800',
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, overflow: 'hidden',
   },
-  title: { color: COLORS.snow, fontSize: 27, fontWeight: '800', marginTop: 8 },
+  title: { color: COLORS.snow, fontFamily: FONTS.display, fontSize: 32, marginTop: 6 },
 
-  tabs: { flexDirection: 'row', marginTop: 16, marginBottom: 16, borderRadius: 14, backgroundColor: COLORS.inkRaised, padding: 4 },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 10 },
-  tabOn: { backgroundColor: COLORS.primary },
+  tabs: {
+    flexDirection: 'row', marginTop: 16, marginBottom: 16, borderRadius: 16, padding: 4,
+    backgroundColor: COLORS.neutral100, borderWidth: 1, borderColor: COLORS.line,
+  },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12 },
+  tabOn: { backgroundColor: COLORS.forest },
   tabText: { color: COLORS.mute, fontWeight: '800' },
-  tabTextOn: { color: COLORS.ink },
+  tabTextOn: { color: COLORS.white },
   empty: { color: COLORS.mute, textAlign: 'center', padding: 24, lineHeight: 20 },
 
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, marginBottom: 10,
-    borderRadius: 16, borderWidth: 1, borderColor: COLORS.line, backgroundColor: COLORS.cardFill,
+    borderRadius: 18, borderWidth: 1, borderColor: COLORS.line, backgroundColor: COLORS.cardFill,
   },
-  thumb: { width: 60, height: 60, borderRadius: 12 },
-  thumbEmpty: { backgroundColor: COLORS.inkRaised },
+  thumb: { width: 64, height: 64, borderRadius: 14 },
+  thumbEmpty: { backgroundColor: COLORS.neutral100, alignItems: 'center', justifyContent: 'center' },
   rowTitle: { color: COLORS.snow, fontSize: 16, fontWeight: '700' },
-  rowSub: { color: COLORS.mute, fontSize: 13, marginTop: 2 },
-  rowStatus: { color: COLORS.info, fontSize: 12, fontWeight: '700', marginTop: 3 },
+  rowSub: { color: COLORS.mute, fontSize: 13, marginTop: 2, marginBottom: 6 },
+  statusPill: { alignSelf: 'flex-start', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  statusPillText: { fontSize: 12, fontWeight: '800' },
 
-  hero: { height: 210, borderRadius: 18, marginRight: 0 },
-  hint: { color: COLORS.mute, fontSize: 12, lineHeight: 17, marginTop: 6 },
-  facts: { marginTop: 14, borderRadius: 16, borderWidth: 1, borderColor: COLORS.line, paddingHorizontal: 14 },
+  hero: { height: 210, borderRadius: 20, marginRight: 0 },
+  hint: { color: COLORS.mute, fontSize: 12.5, lineHeight: 17, marginTop: 6 },
+  facts: {
+    marginTop: 14, borderRadius: 18, borderWidth: 1, borderColor: COLORS.line,
+    backgroundColor: COLORS.cardFill, paddingHorizontal: 14,
+  },
   fact: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.line },
-  factLabel: { color: COLORS.mute, fontSize: 12 },
+  factLabel: { color: COLORS.mute, fontSize: 12, fontWeight: '600' },
   factValue: { color: COLORS.snow, fontSize: 15, marginTop: 2, lineHeight: 20 },
-  mapWrap: { height: 160, borderRadius: 16, overflow: 'hidden', marginTop: 14 },
+  mapWrap: { height: 160, borderRadius: 18, overflow: 'hidden', marginTop: 14, borderWidth: 1, borderColor: COLORS.line },
 
-  section: { color: COLORS.snow, fontSize: 18, fontWeight: '800', marginTop: 26 },
-  proof: { width: '100%', height: 260, borderRadius: 14, marginTop: 10, backgroundColor: COLORS.inkRaised },
+  section: { color: COLORS.snow, fontFamily: FONTS.displaySemi, fontSize: 20, marginTop: 28 },
+  proof: {
+    width: '100%', height: 260, borderRadius: 16, marginTop: 10,
+    backgroundColor: COLORS.cardFill, borderWidth: 1, borderColor: COLORS.line,
+  },
 
-  check: { marginTop: 10, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: COLORS.line, backgroundColor: COLORS.cardFill },
-  checkFlag: { borderColor: 'rgba(185,68,27,0.5)', backgroundColor: COLORS.coralLight },
+  check: { marginTop: 10, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: COLORS.line, backgroundColor: COLORS.cardFill },
+  checkFlag: { borderColor: 'rgba(185,68,27,0.45)', backgroundColor: COLORS.clayLight },
   checkTop: { flexDirection: 'row' },
   checkLabel: { color: COLORS.snow, fontSize: 16, fontWeight: '700' },
   autoRow: { flexDirection: 'row', gap: 7, marginTop: 9 },
   autoText: { flex: 1, color: COLORS.snow, fontSize: 13.5, lineHeight: 19 },
   autoSummary: {
-    flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 12, padding: 14,
-    borderRadius: 16, borderWidth: 1.5, backgroundColor: COLORS.cardFill,
+    flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 12, padding: 18,
+    borderRadius: 20, backgroundColor: COLORS.forest,
   },
-  autoScore: { fontSize: 30, fontWeight: '800', letterSpacing: -1 },
-  autoTitle: { color: COLORS.snow, fontSize: 15, fontWeight: '700' },
+  autoScore: { color: COLORS.white, fontFamily: FONTS.display, fontSize: 40 },
+  autoTitle: { color: COLORS.white, fontSize: 15, fontWeight: '700' },
+  autoVerdict: { backgroundColor: COLORS.white, marginTop: 6 },
+  autoHint: { color: CREAM_SOFT, fontSize: 12.5, marginTop: 6, lineHeight: 17 },
   checkHint: { color: COLORS.mute, fontSize: 13, marginTop: 2, lineHeight: 18 },
   checkBtns: { flexDirection: 'row', gap: 8, marginTop: 12 },
   pill: {
     flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 16,
-    borderRadius: 22, borderWidth: 1, borderColor: COLORS.line,
+    borderRadius: 22, borderWidth: 1, borderColor: COLORS.line, backgroundColor: COLORS.ink,
   },
-  pillPass: { backgroundColor: COLORS.success, borderColor: COLORS.success },
-  pillFlag: { backgroundColor: COLORS.warning, borderColor: COLORS.warning },
+  pillPass: { backgroundColor: COLORS.forest, borderColor: COLORS.forest },
+  pillFlag: { backgroundColor: COLORS.clay, borderColor: COLORS.clay },
   pillText: { color: COLORS.snow, fontWeight: '800' },
   checkNote: {
-    color: COLORS.snow, backgroundColor: COLORS.inkRaised, borderWidth: 1, borderColor: COLORS.line,
-    borderRadius: 12, padding: 12, marginTop: 10, fontSize: 14,
+    color: COLORS.snow, backgroundColor: COLORS.ink, borderWidth: 1, borderColor: COLORS.line,
+    borderRadius: 14, padding: 12, marginTop: 10, fontSize: 14,
   },
 
-  cta: { marginTop: 22, backgroundColor: COLORS.primary, borderRadius: 15, minHeight: 54, alignItems: 'center', justifyContent: 'center' },
-  ctaOff: { backgroundColor: COLORS.inkRaised, borderWidth: 1, borderColor: COLORS.line },
-  ctaText: { color: COLORS.ink, fontWeight: '900', fontSize: 16 },
-  secondary: { marginTop: 10, borderWidth: 1, borderColor: COLORS.line, borderRadius: 15, minHeight: 50, alignItems: 'center', justifyContent: 'center' },
-  secondaryText: { color: COLORS.snow, fontWeight: '800', fontSize: 15 },
+  cta: { marginTop: 22, backgroundColor: COLORS.primary, borderRadius: 16, minHeight: 54, alignItems: 'center', justifyContent: 'center' },
+  ctaOff: { backgroundColor: COLORS.neutral100, borderWidth: 1, borderColor: COLORS.line },
+  ctaText: { color: COLORS.white, fontWeight: '800', fontSize: 16 },
+  secondary: {
+    marginTop: 10, borderWidth: 1.5, borderColor: COLORS.primary, borderRadius: 16, minHeight: 50,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  secondaryText: { color: COLORS.primary, fontWeight: '800', fontSize: 15 },
   rejectBtn: { marginTop: 12, alignItems: 'center', paddingVertical: 12 },
   rejectText: { color: COLORS.danger, fontWeight: '800' },
-  decidedBox: { marginTop: 22, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: COLORS.line, gap: 6 },
+  decidedBox: {
+    marginTop: 22, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: COLORS.line,
+    backgroundColor: COLORS.cardFill, gap: 8,
+  },
 });
