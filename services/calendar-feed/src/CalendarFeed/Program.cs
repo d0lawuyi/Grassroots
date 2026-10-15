@@ -71,7 +71,14 @@ builder.Services.AddRateLimiter(options =>
             _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1) }));
 });
 
+// Lets the Grassroots website (a browser on another address) call this API. See Config/WebsiteCors.cs.
+builder.Services.AddCors(options => options.AddPolicy(WebsiteCors.PolicyName, policy => policy
+    .WithOrigins(WebsiteCors.Origins)
+    .WithMethods(WebsiteCors.Methods)
+    .WithHeaders(WebsiteCors.Headers)));
+
 var app = builder.Build();
+app.UseCors(WebsiteCors.PolicyName);
 app.UseRateLimiter();
 
 app.MapGet("/health", () => Results.Text("ok"));

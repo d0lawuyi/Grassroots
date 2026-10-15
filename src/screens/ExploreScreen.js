@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker } from '../components/maps';
 import { SatellitePreview, VenueSatelliteMap, MapTypeToggle } from '../components/SatelliteView';
 import TimeSlots from '../components/TimeSlots';
 import { supabase } from '../lib/supabase';

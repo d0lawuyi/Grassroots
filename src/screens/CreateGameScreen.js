@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker from '../components/datePicker';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
 import { FONTS } from '../theme/fonts';

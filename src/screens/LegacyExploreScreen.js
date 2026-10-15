@@ -4,7 +4,7 @@ import {
   TouchableOpacity, Image, Modal, RefreshControl, TextInput, Platform,
   Dimensions, ScrollView,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from '../components/maps';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { formatSport, sportEmoji } from '../utils/format';

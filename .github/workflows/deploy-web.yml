@@ -1,0 +1,84 @@
+# Builds the Grassroots website from the app's code and publishes it to GitHub Pages:
+#   https://d0lawuyi.github.io/Grassroots/
+# Runs on every push to main that touches the app, so each merged change goes live in a few minutes.
+#
+# One-time setup (see docs/website.md):
+#   Settings > Pages > Source: GitHub Actions
+#   Settings > Secrets and variables > Actions > Variables:
+#     EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY, EXPO_PUBLIC_CALENDAR_FEED_URL
+# These are the same public values as the app's .env. Never the Supabase secret key.
+
+name: Deploy website
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - services/**
+      - supabase/**
+      - infra/**
+      - docs/**
+      - '**/*.md'
+  workflow_dispatch: # a "Run workflow" button in the Actions tab
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deploy at a time; a newer push replaces one that's waiting.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build website
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Check the settings are filled in
+        env:
+          SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          FEED_URL: ${{ vars.EXPO_PUBLIC_CALENDAR_FEED_URL }}
+        run: |
+          missing=""
+          [ -n "$SUPABASE_URL" ] || missing="$missing EXPO_PUBLIC_SUPABASE_URL"
+          [ -n "$SUPABASE_KEY" ] || missing="$missing EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          [ -n "$FEED_URL" ] || missing="$missing EXPO_PUBLIC_CALENDAR_FEED_URL"
+          if [ -n "$missing" ]; then
+            echo "::error::Add these under Settings > Secrets and variables > Actions > Variables:$missing"
+            exit 1
+          fi
+          case "$SUPABASE_KEY" in
+            sb_secret_*) echo "::error::That's the secret key. The website needs the publishable key (sb_publishable_...)."; exit 1 ;;
+          esac
+      - name: Install packages
+        run: npm ci
+      - name: Build the website
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          EXPO_PUBLIC_CALENDAR_FEED_URL: ${{ vars.EXPO_PUBLIC_CALENDAR_FEED_URL }}
+          EXPO_WEB_BASE_URL: /Grassroots
+        run: npx expo export --platform web --output-dir dist-web
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist-web
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

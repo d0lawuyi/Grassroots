@@ -44,6 +44,8 @@ jobs:
         run: npx expo export --platform ios --output-dir dist-ios
       - name: Build Android bundle
         run: npx expo export --platform android --output-dir dist-android
+      - name: Build web bundle
+        run: npx expo export --platform web --output-dir dist-web
 
   python:
     name: Python tools (${{ matrix.python }})
