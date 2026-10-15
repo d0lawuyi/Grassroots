@@ -6,6 +6,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
+import { FONTS } from '../theme/fonts';
+import { formatGameTime } from '../utils/format';
+import { dayLabel, startsNewDay, initials } from '../utils/chat';
 
 function formatTime(timestamp) {
   const d = new Date(timestamp);
@@ -76,13 +79,13 @@ export default function GameChatScreen({ game, userId, onClose }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onClose} style={styles.backButton}>
+        <TouchableOpacity onPress={onClose} style={styles.backButton} accessibilityLabel="Close chat">
           <Ionicons name="chevron-down" size={22} color={COLORS.snow} />
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.headerTitle} numberOfLines={1}>{game.title}</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {game.parks?.name || 'Game chat'}
+            {[game.parks?.name, game.start_time ? formatGameTime(game.start_time) : null].filter(Boolean).join(' · ') || 'Game chat'}
           </Text>
         </View>
         <View style={{ width: 40 }} />
@@ -116,7 +119,9 @@ export default function GameChatScreen({ game, userId, onClose }) {
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
             ListEmptyComponent={
               <View style={styles.empty}>
-                <View style={styles.emptyMark} />
+                <View style={styles.emptyIcon}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={26} color={COLORS.primary} />
+                </View>
                 <Text style={styles.emptyTitle}>No messages yet</Text>
                 <Text style={styles.emptyText}>Say hello to the other players</Text>
               </View>
@@ -124,24 +129,33 @@ export default function GameChatScreen({ game, userId, onClose }) {
             renderItem={({ item, index }) => {
               const isMine = item.sender_id === userId;
               const prev = messages[index - 1];
-              const showName = !isMine && (!prev || prev.sender_id !== item.sender_id);
+              const newDay = startsNewDay(prev, item);
+              // Name and initial only on the first message in a run from the same person
+              const firstOfRun = !isMine && (newDay || !prev || prev.sender_id !== item.sender_id);
+              const name = item.users?.full_name || 'Player';
 
               return (
-                <View style={[styles.bubbleRow, isMine && styles.bubbleRowMine]}>
-                  <View style={{ maxWidth: '78%' }}>
-                    {showName && (
-                      <Text style={styles.senderName}>
-                        {item.users?.full_name || 'Player'}
-                      </Text>
-                    )}
-                    <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
-                      <Text style={[styles.messageText, isMine && styles.messageTextMine]}>
-                        {item.message}
-                      </Text>
+                <View>
+                  {newDay && (
+                    <View style={styles.dayRow}>
+                      <View style={styles.dayLine} />
+                      <Text style={styles.dayText}>{dayLabel(item.sent_at)}</Text>
+                      <View style={styles.dayLine} />
                     </View>
-                    <Text style={[styles.timestamp, isMine && styles.timestampMine]}>
-                      {formatTime(item.sent_at)}
-                    </Text>
+                  )}
+                  <View style={[styles.bubbleRow, isMine && styles.bubbleRowMine]}>
+                    {!isMine && (
+                      <View style={[styles.face, !firstOfRun && styles.faceHidden]}>
+                        {firstOfRun && <Text style={styles.faceText}>{initials(name)}</Text>}
+                      </View>
+                    )}
+                    <View style={{ maxWidth: '76%' }}>
+                      {firstOfRun && <Text style={styles.senderName}>{name}</Text>}
+                      <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
+                        <Text style={[styles.messageText, isMine && styles.messageTextMine]}>{item.message}</Text>
+                      </View>
+                      <Text style={[styles.timestamp, isMine && styles.timestampMine]}>{formatTime(item.sent_at)}</Text>
+                    </View>
                   </View>
                 </View>
               );
@@ -163,11 +177,12 @@ export default function GameChatScreen({ game, userId, onClose }) {
             style={[styles.sendButton, !draft.trim() && styles.sendButtonDisabled]}
             onPress={sendMessage}
             disabled={!draft.trim() || sending}
+            accessibilityLabel="Send message"
           >
             <Ionicons
               name="arrow-up"
               size={20}
-              color={draft.trim() ? COLORS.ink : COLORS.mute}
+              color={draft.trim() ? COLORS.white : COLORS.mute}
             />
           </TouchableOpacity>
         </View>
@@ -181,61 +196,62 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   header: {
-    flexDirection: 'row', alignItems: 'center', paddingTop: 50, paddingBottom: 14,
-    paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: COLORS.line,
+    flexDirection: 'row', alignItems: 'center', paddingTop: 50, paddingBottom: 12,
+    paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: COLORS.line, backgroundColor: COLORS.ink,
   },
   backButton: {
-    width: 40, height: 40, borderRadius: 13, backgroundColor: COLORS.cardFill,
-    borderWidth: 1, borderColor: COLORS.line,
-    alignItems: 'center', justifyContent: 'center',
+    width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.cardFill,
+    borderWidth: 1, borderColor: COLORS.line, alignItems: 'center', justifyContent: 'center',
   },
-  headerText: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: COLORS.snow, letterSpacing: -0.3 },
-  headerSubtitle: { fontSize: 12, color: COLORS.mute, marginTop: 2 },
+  headerText: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
+  headerTitle: { fontFamily: FONTS.displaySemi, fontSize: 19, lineHeight: 24, color: COLORS.snow },
+  headerSubtitle: { fontSize: 12.5, color: COLORS.mute, marginTop: 2 },
 
   listContent: { padding: 16, paddingBottom: 8, flexGrow: 1 },
-  bubbleRow: { marginBottom: 12, alignItems: 'flex-start' },
-  bubbleRowMine: { alignItems: 'flex-end' },
-  senderName: {
-    fontSize: 11, fontWeight: '800', color: COLORS.primary,
-    marginBottom: 5, marginLeft: 4, letterSpacing: 0.3,
+
+  dayRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 12 },
+  dayLine: { flex: 1, height: 1, backgroundColor: COLORS.line },
+  dayText: { fontSize: 12, fontWeight: '700', color: COLORS.mute },
+
+  bubbleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 10 },
+  bubbleRowMine: { justifyContent: 'flex-end' },
+  face: {
+    width: 30, height: 30, borderRadius: 15, marginTop: 18,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.sage,
   },
-  bubble: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
-  bubbleTheirs: {
-    backgroundColor: COLORS.cardFill,
-    borderBottomLeftRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.line,
-  },
-  bubbleMine: { backgroundColor: COLORS.primary, borderBottomRightRadius: 6 },
+  faceHidden: { backgroundColor: 'transparent', marginTop: 0 },
+  faceText: { fontSize: 11, fontWeight: '800', color: COLORS.primary },
+  senderName: { fontSize: 12, fontWeight: '800', color: COLORS.primary, marginBottom: 4, marginLeft: 4 },
+
+  bubble: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20 },
+  bubbleTheirs: { backgroundColor: COLORS.cardFill, borderBottomLeftRadius: 6, borderWidth: 1, borderColor: COLORS.line },
+  bubbleMine: { backgroundColor: COLORS.forest, borderBottomRightRadius: 6 },
   messageText: { fontSize: 15, color: COLORS.snow, lineHeight: 21 },
-  messageTextMine: { color: COLORS.ink, fontWeight: '500' },
-  timestamp: { fontSize: 10, color: COLORS.faint, marginTop: 4, marginLeft: 6 },
+  messageTextMine: { color: COLORS.white },
+  timestamp: { fontSize: 10.5, color: COLORS.faint, marginTop: 4, marginLeft: 6 },
   timestampMine: { textAlign: 'right', marginRight: 6 },
 
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyMark: {
-    width: 13, height: 13, backgroundColor: COLORS.primary,
-    borderRadius: 3, transform: [{ rotate: '45deg' }], marginBottom: 16,
+  emptyIcon: {
+    width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.sage, marginBottom: 14,
   },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: COLORS.snow },
+  emptyTitle: { fontFamily: FONTS.displaySemi, fontSize: 20, color: COLORS.snow },
   emptyText: { fontSize: 14, color: COLORS.mute, marginTop: 6 },
 
   composer: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
-    paddingHorizontal: 14, paddingTop: 10, paddingBottom: 24,
-    borderTopWidth: 1, borderTopColor: COLORS.line,
-    backgroundColor: COLORS.inkRaised,
+    paddingHorizontal: 14, paddingTop: 10, paddingBottom: 26,
+    borderTopWidth: 1, borderTopColor: COLORS.line, backgroundColor: COLORS.ink,
   },
   input: {
     flex: 1, maxHeight: 110, minHeight: 44,
-    backgroundColor: COLORS.inkRaised, borderRadius: 22,
+    backgroundColor: COLORS.cardFill, borderRadius: 22,
     paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12,
-    fontSize: 15, color: COLORS.snow,
-    borderWidth: 1, borderColor: COLORS.line,
+    fontSize: 15, color: COLORS.snow, borderWidth: 1, borderColor: COLORS.line,
   },
   sendButton: {
-    width: 44, height: 44, borderRadius: 15, backgroundColor: COLORS.primary,
+    width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.forest,
     alignItems: 'center', justifyContent: 'center',
   },
   sendButtonDisabled: { backgroundColor: COLORS.neutral200 },
