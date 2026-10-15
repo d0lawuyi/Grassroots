@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker } from '../components/maps';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../theme/colors';
 import { FONTS } from '../theme/fonts';
