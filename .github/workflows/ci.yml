@@ -35,6 +35,9 @@ jobs:
       # Helpers behind the My Games cards (src/utils/myGames.js)
       - name: Check My Games helpers
         run: TZ=America/Indianapolis node --test scripts/check-my-games.mjs
+      # Day dividers, kickoff pills and initials in Messages and the game chat (src/utils/chat.js)
+      - name: Check chat helpers
+        run: TZ=America/Indianapolis node --test scripts/check-chat.mjs
       # Builds the JavaScript bundle the phone downloads. A typo, a missing import or
       # a file that doesn't exist fails here instead of on your phone.
       - name: Build iOS bundle
